@@ -1,10 +1,20 @@
-# Tessera made by peoplegroup
+# Tessera
 
 Share your place with people you have actually met.
 
 Tessera is a local-first prototype for sharing flats only inside real acquaintance. You meet someone in person, connect with two scans, and each contact sees only what their circle (Family, Friends, Met) allows. There is no account and no server, and your data stays on your device.
 
-**Status: prototype.** The network is simulated. Other people, the QR scan and answers to requests are demo data. Flats, terms, circles, the map and on-device storage are real. The business deck is built into the app.
+**Status: MVP.** Everything works between real phones, but without cryptography yet: codes are plain data, not signed or encrypted. The business deck is built into the app.
+
+## How it works
+
+1. **Meet.** One person opens "Meet someone" and shows a QR code. The other taps "Scan their code", picks a circle (Family, Friends, Met) and gets a code to show back. The first person scans that and does the same. Now both have each other, and each has the flats the other shares with their circle.
+2. **Stay up to date.** When you change a flat or someone's circle, People marks them with "Update". Open them and send your flats. That works as a QR code or as a text you share through any messenger.
+3. **Ask and answer.** Request a stay on someone's flat and send the code. They tap Receive, paste or scan it, and accept or decline. Their answer comes back the same way. Arrival notes travel only in an acceptance.
+
+Every code starts with `TSR1.`. Pasting a whole chat message works, because the app finds the code inside it.
+
+You can only add someone by scanning their code in person (or pasting it inside "Meet someone"). A code from someone you haven't met opens a "Meet first" screen instead.
 
 ## Install on Android
 
@@ -19,9 +29,18 @@ You can also open `index.html` directly in a browser. It works offline.
 ## Privacy
 
 - No account, no analytics, no cookies, no tracking.
-- The app makes no network requests. Fonts and map data are built in.
-- Everything is stored in the app's local storage on your device.
-- **Uninstalling the app or clearing its data deletes everything.** The prototype has no backup or export yet.
+- The app makes no network requests. Fonts, map data, the QR generator and the QR reader (jsQR, Apache-2.0) are built in.
+- Everything is stored in the app's local storage on your device. Codes travel only the way you send them.
+- **Codes are not encrypted yet.** Anyone who sees a code can read it. Send each code only to the person it is for, especially accepted requests, which hold your arrival notes.
+- The Android app asks for the camera only to scan codes.
+
+## Backup
+
+Under You, tap "Save backup". You get a copy of the app with your data inside (`tessera-backup-<date>.html`). Opening that file in a browser shows your data; "Load backup" in the app restores it. On Android the backup goes through the share menu, so you can save it to Files or Drive.
+
+**Never upload a backup file to this repository as `index.html`.** It contains your personal data. The build refuses to run if it finds data in `index.html`.
+
+Uninstalling the app or clearing its data deletes everything that isn't in a backup.
 
 ## Repository layout
 
