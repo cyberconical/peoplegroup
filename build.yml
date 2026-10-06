@@ -1,0 +1,176 @@
+# Tessera: Android build
+# Builds a signed APK from index.html with a Capacitor 6 shell.
+# On "release: published" the APK is attached to that release (for Obtainium).
+# On a manual run it is uploaded as a workflow artifact.
+#
+# NEVER change APP_ID, the keystore below, or its password and alias.
+# A different key or appId means existing installs can no longer be updated.
+
+name: Build Android APK
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  APP_ID: app.tessera
+  APP_NAME: Tessera
+  KS_ALIAS: tessera
+  KS_PASS: tesseracca5cb81d887d529b784ce54
+  # Release keystore (PKCS12), base64. Public on purpose: acceptable for a
+  # private app outside the Play Store. See README to move it into secrets.
+  KS_B64: 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
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Create Capacitor project
+        run: |
+          set -euo pipefail
+          test -f index.html || { echo "index.html missing in repo root"; exit 1; }
+          if grep -q '<script id="saved-data" type="application/json">' index.html \
+             && ! grep -q '<script id="saved-data" type="application/json">null</script>' index.html; then
+            echo "index.html contains embedded personal data (a backup file). Refusing to build."; exit 1
+          fi
+          mkdir -p www
+          cp index.html www/index.html
+          npm init -y > /dev/null
+          npm install --no-audit --no-fund \
+            @capacitor/core@6 @capacitor/android@6 @capacitor/filesystem@6 \
+            @capacitor/share@6 @capacitor/cli@6
+          cat > capacitor.config.json <<JSON
+          {
+            "appId": "${APP_ID}",
+            "appName": "${APP_NAME}",
+            "webDir": "www"
+          }
+          JSON
+          npx cap add android
+          npx cap sync android
+
+      - name: Draw icons
+        run: |
+          set -euo pipefail
+          pip install --break-system-packages --quiet pillow
+          python3 - <<'PY'
+          import os, re
+          from PIL import Image, ImageDraw
+
+          BLUE = (59, 100, 173, 255)     # --accent #3b64ad
+          WHITE = (255, 255, 255, 255)
+          RES = "android/app/src/main/res"
+
+          def full(size, round_=False):
+              # Same mark as the favicon: blue square, white vertical line.
+              s = size * 4
+              im = Image.new("RGBA", (s, s), (0, 0, 0, 0))
+              d = ImageDraw.Draw(im)
+              if round_:
+                  d.ellipse([0, 0, s - 1, s - 1], fill=BLUE)
+              else:
+                  d.rectangle([0, 0, s, s], fill=BLUE)
+              w = max(4, round(s * 2 / 32))
+              top, bot = round(s * 5 / 32), round(s * 27 / 32)
+              if round_:
+                  top, bot = round(s * 7 / 32), round(s * 25 / 32)
+              d.rectangle([s // 2 - w // 2, top, s // 2 - w // 2 + w, bot], fill=WHITE)
+              return im.resize((size, size), Image.LANCZOS)
+
+          def foreground(size):
+              # Adaptive icon layer: 108dp canvas, ~72dp visible.
+              s = size * 4
+              im = Image.new("RGBA", (s, s), (0, 0, 0, 0))
+              d = ImageDraw.Draw(im)
+              vis = s * 72 / 108
+              w = max(4, round(vis * 2 / 32))
+              h = vis * 22 / 32 * 0.85        # keep inside the 66dp safe zone
+              d.rectangle([s // 2 - w // 2, round(s / 2 - h / 2),
+                           s // 2 - w // 2 + w, round(s / 2 + h / 2)], fill=WHITE)
+              return im.resize((size, size), Image.LANCZOS)
+
+          def splash(wd, ht):
+              im = Image.new("RGBA", (wd, ht), WHITE)
+              ic = full(max(48, min(wd, ht) // 5))
+              im.paste(ic, ((wd - ic.width) // 2, (ht - ic.height) // 2), ic)
+              return im
+
+          n = 0
+          for root, _, files in os.walk(RES):
+              for f in files:
+                  p = os.path.join(root, f)
+                  if f in ("ic_launcher.png", "ic_launcher_round.png", "ic_launcher_foreground.png", "splash.png"):
+                      w, h = Image.open(p).size
+                      if f == "ic_launcher.png":            img = full(w)
+                      elif f == "ic_launcher_round.png":    img = full(w, round_=True)
+                      elif f == "ic_launcher_foreground.png": img = foreground(w)
+                      else:                                  img = splash(w, h)
+                      img.save(p); n += 1
+          bg = os.path.join(RES, "values", "ic_launcher_background.xml")
+          if os.path.exists(bg):
+              t = open(bg).read()
+              t = re.sub(r"#[0-9A-Fa-f]{6,8}", "#3B64AD", t)
+              open(bg, "w").write(t)
+          print(f"replaced {n} images")
+          if n == 0:
+              raise SystemExit("no icon files found")
+          PY
+
+      - name: Set version
+        run: |
+          set -euo pipefail
+          TAG="${{ github.event.release.tag_name }}"
+          NAME="${TAG#v}"
+          [ -n "$NAME" ] || NAME="0.0.${{ github.run_number }}"
+          sed -i -E "s/versionCode [0-9]+/versionCode ${{ github.run_number }}/" android/app/build.gradle
+          sed -i -E "s/versionName \"[^\"]*\"/versionName \"${NAME}\"/" android/app/build.gradle
+          grep -E "versionCode|versionName" android/app/build.gradle
+
+      - name: Build release APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
+
+      - name: Sign APK
+        run: |
+          set -euo pipefail
+          BT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          echo "$KS_B64" | base64 -d > release.p12
+          IN=android/app/build/outputs/apk/release/app-release-unsigned.apk
+          "$BT/zipalign" -p -f 4 "$IN" aligned.apk
+          TAG="${{ github.event.release.tag_name }}"
+          OUT="tessera-${TAG:-build${{ github.run_number }}}.apk"
+          "$BT/apksigner" sign --ks release.p12 --ks-type PKCS12 \
+            --ks-key-alias "$KS_ALIAS" --ks-pass "pass:$KS_PASS" --key-pass "pass:$KS_PASS" \
+            --out "$OUT" aligned.apk
+          "$BT/apksigner" verify --print-certs "$OUT"
+          echo "APK=$OUT" >> "$GITHUB_ENV"
+
+      - name: Attach to release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.release.tag_name }}" "$APK" --clobber
+
+      - name: Upload artifact
+        if: github.event_name != 'release'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tessera-apk
+          path: ${{ env.APK }}
