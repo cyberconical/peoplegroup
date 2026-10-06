@@ -62,6 +62,10 @@ jobs:
           }
           JSON
           npx cap add android
+          # Camera for scanning codes in person. Not required, so phones without one can install.
+          M=android/app/src/main/AndroidManifest.xml
+          grep -q 'android.permission.CAMERA' "$M" || sed -i 's#</manifest>#    <uses-permission android:name="android.permission.CAMERA" />\n    <uses-feature android:name="android.hardware.camera" android:required="false" />\n</manifest>#' "$M"
+          grep -E 'CAMERA|hardware.camera' "$M"
           npx cap sync android
 
       - name: Draw icons
