@@ -12,6 +12,11 @@ Tessera is a local-first prototype for sharing flats only inside real acquaintan
 2. **Stay up to date.** When you change a flat or someone's circle, People marks them with "Update". Open them and send your flats. That works as a QR code or as a text you share through any messenger.
 3. **Ask and answer.** Request a stay on someone's flat and send the code. They tap Receive, paste or scan it, and accept or decline. Their answer comes back the same way. Arrival notes travel only in an acceptance.
 
+4. **Through your people.** On each flat you can set terms for "Through my people" and tick which of your circles may pass it on. If Ben is in your Family and you ticked Family, Ben's Family and Friends see that flat, marked "via Ben". It goes one step only, and arrival notes are never passed on.
+5. **Intros.** To ask for a stay at a flat you see through someone, ask them for an intro. They send one code to both of you. For 30 days you can ask each other for stays directly. Meet and scan each other's codes in that time to stay connected for good. Otherwise the intro runs out and has to be shared again, which gives another 30 days.
+
+In Stays, people you've met and people you see through someone are listed separately. Family is marked in solid black, friends with an outline, and flats through someone with a dotted line. The map uses the same marks. Under You, "How Tessera works" shows all of this as diagrams.
+
 Every code starts with `TSR1.`. Pasting a whole chat message works, because the app finds the code inside it.
 
 You can only add someone by scanning their code in person (or pasting it inside "Meet someone"). A code from someone you haven't met opens a "Meet first" screen instead.
@@ -25,6 +30,16 @@ You can only add someone by scanning their code in person (or pasting it inside 
 The APK is signed with this repository's own key. Android may warn that the app comes from an unknown source. That warning is expected for apps outside the Play Store.
 
 You can also open `index.html` directly in a browser. It works offline.
+
+## Practise with test people
+
+Under You, "Test people" adds made-up people to try everything on one phone:
+
+- **Sam**, whom you meet with "Practise meeting" and put in your Friends. Show his code on a second screen and scan it to test the camera, or tap "Simulate scan".
+- **Lea**, Sam's sister, in his Family, and **Jonas**, his friend. You see one flat of each through Sam, and Sam can introduce you.
+- **Dad**, in your Family, with two flats.
+
+Codes you send them stay on your phone, and they answer within a second. "Let test intros run out" lets you try an expired intro without waiting a month. Test people are never passed on to real contacts, and "Remove test people" deletes them.
 
 ## Privacy
 
