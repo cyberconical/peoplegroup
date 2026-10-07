@@ -173,6 +173,46 @@ form.inline .error{flex-basis:100%}
 .exgroup{margin-top:18px}
 .exgroup>.area{display:block;margin-bottom:2px}
 .flat.example .terms{color:var(--mute)}
+.chip.c-family{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.chip.c-met{border-color:var(--mute);color:var(--mute)}
+.chip.via{border-style:dotted;border-width:1.5px}
+.chip.test{border-color:var(--accent);color:var(--accent)}
+.person-head h2 .chip{vertical-align:middle;margin-left:6px;font-size:10px}
+.flat.c-family{border-left:4px solid var(--ink);padding-left:12px}
+.flat.via{border-left:3px dotted var(--ink);padding-left:12px}
+.person.via .person-head{border-bottom-style:dotted}
+.pin.c-family .dot{fill:var(--ink)}
+.pin.c-family text{fill:#fff}
+.pin.via .halo{fill:none;stroke:var(--ink);stroke-opacity:.45;stroke-dasharray:2 3}
+.pin.via .dot{fill:#fff;stroke:var(--ink);stroke-width:2.2;stroke-dasharray:2 2}
+.legend i.fam{background:var(--ink)}
+.legend i.via{border-style:dotted;border-width:2px}
+.locator{width:104px;height:66px}
+.loc-dot{stroke:#fff;stroke-width:1.2;vector-effect:non-scaling-stroke}
+.loc-halo{fill-opacity:.22}
+.loc-dot.shared{fill:#fff;stroke:var(--ink);stroke-width:1.6}
+.loc-dot.shared.family{fill:var(--ink);stroke:#fff;stroke-width:1.2}
+.loc-halo.via{fill:var(--ink);fill-opacity:.07}
+.loc-dot.via{fill:#fff;stroke:var(--ink);stroke-width:1.6;stroke-dasharray:2 1.5}
+.dg{display:block;width:100%;height:auto;margin:10px 0 6px}
+.dg text{font-family:var(--sans);fill:var(--ink)}
+.dg .bx{fill:var(--bg);stroke:var(--ink);stroke-width:1.2}
+.dg .soft .bx{fill:var(--land)}
+.dg .acc .bx,.dg .bx.acc{fill:var(--tint);stroke:var(--accent)}
+.dg .frame{fill:none;stroke:var(--line);stroke-width:1.5}
+.dg .t{font-size:12px;font-weight:600;text-anchor:middle}
+.dg .s{font-size:10px;fill:var(--mute);text-anchor:middle}
+.dg .h{font:600 10px var(--mono);letter-spacing:.06em;fill:var(--mute)}
+.dg .l{font:600 10px var(--mono);fill:var(--accent);text-anchor:middle}
+.dg .ar{stroke:var(--ink);stroke-width:1.3}
+.dg .ar.dash{stroke-dasharray:4 3}
+.dg .hd{fill:var(--ink)}
+.dg .lane{stroke:var(--line);stroke-width:1;stroke-dasharray:3 3}
+.dg .ring{fill:none;stroke:var(--ink);stroke-width:1.2}
+.dg .ring.dot{stroke-dasharray:2 3}
+.dg .you{fill:var(--accent)}
+.dg .inv{fill:#fff;font-size:11px}
+.dg .halo{paint-order:stroke;stroke:var(--bg);stroke-width:5px;stroke-linejoin:round}
 </style>
 </head>
 <body>
@@ -252,11 +292,14 @@ const EXAMPLES = [
 <script id="core">
 const Core = (() => {
 const CIRCLES = ['family', 'friends', 'met'];
-const CIRCLE_LABEL = { family: 'Family', friends: 'Friends', met: 'Met' };
+const CIRCLE_LABEL = { family: 'Family', friends: 'Friends', met: 'Met', through: 'Through my people' };
 const STATE_VERSION = 2;
 const MSG_VERSION = 1;
 const CODE_PREFIX = 'TSR1.';
 const DAY_MS = 86400000;
+const AUDIENCES = ['family', 'friends', 'met', 'through']; // through = people your people know
+const PASS_TO = ['family', 'friends']; // a middleman forwards only to these circles of theirs
+const INTRO_DAYS = 30;
 const GATE_MESSAGE = 'You haven’t met this person yet. Meet first.';
 const ID_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -341,7 +384,7 @@ function flatFromForm(f, id) {
   if (!title) return { error: 'Give the flat a title.' };
   if (!area) return { error: 'Add an area, such as a neighbourhood or city.' };
   const terms = {};
-  for (const c of CIRCLES) {
+  for (const c of AUDIENCES) {
     const mode = f[c + '_mode'];
     if (mode === 'price') {
       const price = Math.round(Number(String(f[c + '_price'] ?? '').replace(',', '.')));
@@ -362,6 +405,7 @@ function flatFromForm(f, id) {
       desc: String(f.desc || '').trim().slice(0, 300), avail: String(f.avail || '').trim().slice(0, 80),
       arrival: String(f.arrival || '').trim().slice(0, 200),
       terms,
+      passOn: CIRCLES.filter((c) => Array.isArray(f.passOn) && f.passOn.includes(c)),
     },
   };
 }
@@ -409,9 +453,16 @@ function mapPlaces(state, examples) {
     out.push({ key: 'mine:' + f.id, kind: 'mine', flatId: f.id, contactId: null, title: f.title, area: f.area, lat: f.lat, lon: f.lon, terms: null, contactName: null });
   }
   for (const c of state.contacts) {
+    if (!isMet(c)) continue;
     for (const { flat, terms } of sharedBy(c)) {
       if (!hasCoords(flat)) continue;
-      out.push({ key: 'shared:' + c.id + ':' + flat.id, kind: 'shared', flatId: flat.id, contactId: c.id, title: flat.title, area: flat.area, lat: flat.lat, lon: flat.lon, terms, contactName: c.name });
+      out.push({ key: 'shared:' + c.id + ':' + flat.id, kind: 'shared', flatId: flat.id, contactId: c.id, title: flat.title, area: flat.area, lat: flat.lat, lon: flat.lon, terms, contactName: c.name, circle: c.circle });
+    }
+  }
+  for (const sd of secondDegree(state, Date.now())) {
+    for (const flat of sd.flats) {
+      if (!hasCoords(flat)) continue;
+      out.push({ key: 'via:' + sd.owner.id + ':' + flat.id, kind: 'via', flatId: flat.id, contactId: sd.owner.id, title: flat.title, area: flat.area, lat: flat.lat, lon: flat.lon, terms: flat.terms, contactName: sd.owner.name, viaName: sd.via.name, rel: sd.rel, introStatus: sd.status });
     }
   }
   if (state.showExamples && Array.isArray(examples)) {
@@ -467,12 +518,13 @@ function cleanCoords(f, out) {
 function cleanFlat(f) {
   if (!isObj(f) || !safeId(f.id) || !str(f.title) || !str(f.area)) return null;
   const terms = {};
-  for (const c of CIRCLES) terms[c] = cleanTerms(isObj(f.terms) ? f.terms[c] : null);
+  for (const c of AUDIENCES) terms[c] = cleanTerms(isObj(f.terms) ? f.terms[c] : null);
   return cleanCoords(f, {
     id: f.id, title: text(f.title, 60), area: text(f.area, 60),
     rooms: clampInt(f.rooms, 1, 20), beds: clampInt(f.beds, 1, 40),
     desc: text(f.desc, 300), avail: text(f.avail, 80), arrival: text(f.arrival, 200),
     terms,
+    passOn: Array.isArray(f.passOn) ? CIRCLES.filter((x) => f.passOn.includes(x)) : [],
   });
 }
 
@@ -485,18 +537,46 @@ function cleanSharedFlat(f) {
     id: f.id, title: text(f.title, 60), area: text(f.area, 60),
     rooms: clampInt(f.rooms, 1, 20), beds: clampInt(f.beds, 1, 40),
     desc: text(f.desc, 300), avail: text(f.avail, 80), terms,
+    ...(isShared(cleanTerms(f.through)) ? { through: cleanTerms(f.through) } : {}),
   });
 }
 
+function stripThrough(f) { const { through, ...rest } = f; return rest; }
+
+function cleanVia(v) {
+  if (!isObj(v) || !isObj(v.owner) || !safeId(v.owner.id) || !str(v.owner.name) || !v.owner.name.trim()) return null;
+  const flats = Array.isArray(v.flats) ? v.flats.map(cleanSharedFlat).filter(Boolean).map(stripThrough).slice(0, 20) : [];
+  if (!flats.length) return null;
+  return { owner: { id: v.owner.id, name: text(v.owner.name.trim(), 40) }, rel: CIRCLES.includes(v.rel) ? v.rel : 'met', flats };
+}
+
 function cleanContact(c) {
-  if (!isObj(c) || !safeId(c.id) || !str(c.name) || !c.name.trim() || !str(c.metAt)) return null;
-  return {
-    id: c.id, name: text(c.name, 40), circle: CIRCLES.includes(c.circle) ? c.circle : 'met',
-    note: text(c.note, 60), metAt: c.metAt,
+  if (!isObj(c) || !safeId(c.id) || !str(c.name) || !c.name.trim()) return null;
+  const intro = isObj(c.intro) && safeId(c.intro.by) && num(c.intro.until)
+    ? { by: c.intro.by, byName: text(c.intro.byName, 40), until: c.intro.until } : null;
+  const status = c.status === 'intro' && intro ? 'intro' : 'met';
+  if (status === 'met' && !str(c.metAt)) return null;
+  const out = {
+    id: c.id, name: text(c.name, 40), status, circle: CIRCLES.includes(c.circle) ? c.circle : 'met',
+    note: text(c.note, 60), metAt: status === 'met' ? c.metAt : '',
     flats: Array.isArray(c.flats) ? c.flats.map(cleanSharedFlat).filter(Boolean).slice(0, 50) : [],
+    via: Array.isArray(c.via) ? c.via.map(cleanVia).filter(Boolean).slice(0, 50) : [],
     bundleTs: num(c.bundleTs) ? c.bundleTs : 0,
     sentSig: text(c.sentSig, 40),
   };
+  if (intro) out.intro = intro;
+  if (c.demo === true) out.demo = true;
+  return out;
+}
+
+function cleanAsk(a) {
+  if (!isObj(a) || !safeId(a.id) || !safeId(a.contactId) || !safeId(a.aboutId) || !num(a.createdAt)) return null;
+  return { id: a.id, contactId: a.contactId, aboutId: a.aboutId, aboutName: text(a.aboutName, 40), createdAt: a.createdAt, doneAt: num(a.doneAt) ? a.doneAt : 0 };
+}
+
+function cleanSentAsk(a) {
+  if (!isObj(a) || !safeId(a.viaId) || !safeId(a.aboutId) || !num(a.at)) return null;
+  return { viaId: a.viaId, aboutId: a.aboutId, at: a.at };
 }
 
 function cleanStay(r) {
@@ -541,6 +621,8 @@ function normalize(raw) {
     contacts: legacy ? [] : list(raw.contacts, cleanContact),
     requests: legacy ? [] : list(raw.requests, cleanRequest),
     incoming: legacy ? [] : list(raw.incoming, cleanIncoming),
+    introAsks: legacy ? [] : list(raw.introAsks, cleanAsk),
+    sentAsks: legacy ? [] : list(raw.sentAsks, cleanSentAsk),
     showExamples: raw.showExamples !== false,
     backupAt: num(raw.backupAt) ? raw.backupAt : 0,
     updatedAt: num(raw.updatedAt) ? raw.updatedAt : 0,
@@ -548,6 +630,7 @@ function normalize(raw) {
   const ids = new Set(s.contacts.map((c) => c.id));
   s.requests = s.requests.filter((r) => ids.has(r.contactId));
   s.incoming = s.incoming.filter((r) => ids.has(r.contactId));
+  s.introAsks = s.introAsks.filter((a) => ids.has(a.contactId) && ids.has(a.aboutId));
   return s;
 }
 
@@ -584,12 +667,47 @@ function envelope(state, t, now, extra) {
   return { app: 'tessera', v: MSG_VERSION, t, from: { id: state.me.id, name: state.me.name }, ts: now, ...extra };
 }
 
+function isMet(c) { return !!c && c.status !== 'intro'; }
+function introActive(c, now) { return !!c && c.status === 'intro' && !!c.intro && c.intro.until > now; }
+function introDaysLeft(c, now) { return c && c.intro ? Math.max(0, Math.ceil((c.intro.until - now) / DAY_MS)) : 0; }
+
+// Terms one contact gets for one of my flats. Introduced people get the "through" terms,
+// but only while the intro is active and only if the circle of the person who introduced them may pass it on.
+function audienceTerms(state, flat, c, now) {
+  if (isMet(c)) return termsFor(flat, c.circle);
+  if (!introActive(c, now)) return { mode: 'hidden' };
+  const by = contactOf(state, c.intro.by);
+  if (!isMet(by) || !(flat.passOn || []).includes(by.circle)) return { mode: 'hidden' };
+  return termsFor(flat, 'through');
+}
+
+function publicFlat(flat, terms) {
+  const f = { id: flat.id, title: flat.title, area: flat.area, rooms: flat.rooms, beds: flat.beds, desc: flat.desc, avail: flat.avail, terms };
+  if (hasCoords(flat)) { f.lat = flat.lat; f.lon = flat.lon; }
+  return f;
+}
+
+// My flats as one met contact may see them. "through" marks flats they may pass on, and on what terms.
 function sharedFlatsFor(state, contact) {
   return visibleTo(state.flats, contact.circle).map(({ flat, terms }) => {
-    const f = { id: flat.id, title: flat.title, area: flat.area, rooms: flat.rooms, beds: flat.beds, desc: flat.desc, avail: flat.avail, terms };
-    if (hasCoords(flat)) { f.lat = flat.lat; f.lon = flat.lon; }
+    const f = publicFlat(flat, terms);
+    const th = termsFor(flat, 'through');
+    if ((flat.passOn || []).includes(contact.circle) && isShared(th)) f.through = th;
     return f;
   });
+}
+
+// Flats my people allowed me to pass on, for one contact of mine. One step only:
+// I never forward what was forwarded to me, and only to my Family and Friends.
+function viaFor(state, contact) {
+  if (!isMet(contact) || !PASS_TO.includes(contact.circle)) return [];
+  const out = [];
+  for (const o of state.contacts) {
+    if (o.id === contact.id || !isMet(o) || (o.demo && !contact.demo)) continue;
+    const flats = o.flats.filter((f) => f.through).map((f) => ({ ...stripThrough(f), terms: f.through }));
+    if (flats.length) out.push({ owner: { id: o.id, name: o.name }, rel: o.circle, flats });
+  }
+  return out;
 }
 
 // My card: who I am, no flats yet (I don't know their circle).
@@ -598,13 +716,13 @@ function cardMsg(state, now) { return envelope(state, 'bundle', now, { flats: nu
 // What one contact may see of my flats, terms already resolved for their circle.
 function bundleMsg(state, contactId, now) {
   const c = state.contacts.find((x) => x.id === contactId);
-  if (!c) return null;
-  return envelope(state, 'bundle', now, { to: c.id, flats: sharedFlatsFor(state, c) });
+  if (!isMet(c)) return null;
+  return envelope(state, 'bundle', now, { to: c.id, flats: sharedFlatsFor(state, c), via: viaFor(state, c) });
 }
 
-function bundleSig(state, contact) { return hash(JSON.stringify(sharedFlatsFor(state, contact))); }
+function bundleSig(state, contact) { return hash(JSON.stringify([sharedFlatsFor(state, contact), viaFor(state, contact)])); }
 
-function needsUpdate(state, contact) { return contact.sentSig !== bundleSig(state, contact); }
+function needsUpdate(state, contact) { return isMet(contact) && contact.sentSig !== bundleSig(state, contact); }
 
 function markSent(state, contactId) {
   const i = state.contacts.findIndex((c) => c.id === contactId);
@@ -629,15 +747,39 @@ function responseMsg(state, r) {
   return envelope(state, 'response', r.answeredAt || r.createdAt, extra);
 }
 
+function introReqMsg(state, viaId, about, now) {
+  return envelope(state, 'introreq', now, { to: viaId, about: { id: about.id, name: about.name } });
+}
+
+function introMsg(state, ask, now) {
+  const asker = contactOf(state, ask.contactId);
+  const about = contactOf(state, ask.aboutId);
+  if (!asker || !about) return null;
+  return envelope(state, 'intro', now, { people: [{ id: asker.id, name: asker.name }, { id: about.id, name: about.name }] });
+}
+
+const person = (p) => (isObj(p) && safeId(p.id) && str(p.name) && p.name.trim() ? { id: p.id, name: p.name.trim().slice(0, 40) } : null);
+
 function cleanMsg(m) {
   if (!isObj(m) || m.app !== 'tessera' || m.v !== MSG_VERSION || !num(m.ts)) return null;
   if (!isObj(m.from) || !safeId(m.from.id) || !str(m.from.name) || !m.from.name.trim()) return null;
   const base = { t: m.t, ts: m.ts, from: { id: m.from.id, name: m.from.name.trim().slice(0, 40) } };
   if (m.to !== undefined) { if (!safeId(m.to)) return null; base.to = m.to; }
   if (m.t === 'bundle') {
-    if (m.flats === null || m.flats === undefined) return { ...base, flats: null };
+    if (m.flats === null || m.flats === undefined) return { ...base, flats: null, via: [] };
     if (!Array.isArray(m.flats)) return null;
-    return { ...base, flats: m.flats.map(cleanSharedFlat).filter(Boolean).slice(0, 50) };
+    return { ...base, flats: m.flats.map(cleanSharedFlat).filter(Boolean).slice(0, 50), via: Array.isArray(m.via) ? m.via.map(cleanVia).filter(Boolean).slice(0, 50) : [] };
+  }
+  if (m.t === 'introreq') {
+    const about = person(m.about);
+    if (!base.to || !about) return null;
+    return { ...base, about };
+  }
+  if (m.t === 'intro') {
+    if (!Array.isArray(m.people) || m.people.length !== 2) return null;
+    const people = m.people.map(person);
+    if (!people[0] || !people[1] || people[0].id === people[1].id) return null;
+    return { ...base, people };
   }
   if (m.t === 'request') {
     const q = m.req;
@@ -673,21 +815,75 @@ function pruneIncoming(s) {
     if (r.status !== 'pending') return true;
     const c = contactOf(s, r.contactId);
     const f = s.flats.find((x) => x.id === r.flatId);
+    if (c && f && c.status === 'intro') return true;
     return !!(c && f && isShared(termsFor(f, c.circle)));
   });
   return s;
 }
 
-function addContact(state, msg, circle, note, now) {
-  if (contactOf(state, msg.from.id)) return state;
+function addContact(state, msg, circle, note, now, extra) {
+  const old = contactOf(state, msg.from.id);
+  if (isMet(old)) return state;
   const s = clone(state);
-  s.contacts.unshift({
-    id: msg.from.id, name: msg.from.name,
+  const c = {
+    id: msg.from.id, name: msg.from.name, status: 'met',
     circle: CIRCLES.includes(circle) ? circle : 'met',
     note: String(note || '').trim().slice(0, 60), metAt: new Date(now).toISOString(),
-    flats: Array.isArray(msg.flats) ? msg.flats : [], bundleTs: msg.ts, sentSig: '',
-  });
+    flats: Array.isArray(msg.flats) ? msg.flats : [], via: Array.isArray(msg.via) ? msg.via : [],
+    bundleTs: msg.ts, sentSig: '', ...(extra || {}),
+  };
+  if (old && old.intro) c.intro = old.intro; // remember who introduced you
+  if (old) s.contacts = s.contacts.filter((x) => x.id !== old.id);
+  s.contacts.unshift(c);
   return s;
+}
+
+// Asker side: ask a met contact to introduce me to someone whose flat they pass on.
+function askIntro(state, viaId, about, now) {
+  const via = contactOf(state, viaId);
+  if (!isMet(via)) return { error: GATE_MESSAGE };
+  const s = clone(state);
+  s.sentAsks = s.sentAsks.filter((a) => !(a.viaId === viaId && a.aboutId === about.id));
+  s.sentAsks.unshift({ viaId, aboutId: about.id, at: now });
+  return { state: s, msg: introReqMsg(state, viaId, about, now) };
+}
+
+// Middleman side: introduce the two. The same code goes to both of them.
+function makeIntro(state, askId, now) {
+  const i = state.introAsks.findIndex((a) => a.id === askId);
+  if (i < 0) return { error: 'This request is gone.' };
+  const msg = introMsg(state, state.introAsks[i], now);
+  if (!msg) return { error: 'One of them is no longer in your people.' };
+  const s = clone(state);
+  s.introAsks[i].doneAt = now;
+  return { state: s, msg };
+}
+
+function setIntroUntil(state, contactId, until) {
+  const i = state.contacts.findIndex((c) => c.id === contactId && c.status === 'intro');
+  if (i < 0) return state;
+  const s = clone(state);
+  s.contacts[i].intro.until = until;
+  return s;
+}
+
+// Flats I can see one step away: shared by people my people know, passed on by them.
+function secondDegree(state, now) {
+  const seen = new Set();
+  const out = [];
+  for (const via of state.contacts) {
+    if (!isMet(via)) continue;
+    for (const v of via.via || []) {
+      const o = v.owner.id;
+      if (o === state.me.id || seen.has(o) || isMet(contactOf(state, o))) continue;
+      seen.add(o);
+      const intro = contactOf(state, o);
+      const status = intro ? (introActive(intro, now) ? 'active' : 'expired') : 'none';
+      const asked = state.sentAsks.find((a) => a.aboutId === o && a.viaId === via.id) || null;
+      out.push({ owner: v.owner, rel: v.rel, via, flats: v.flats, intro, status, asked, daysLeft: introDaysLeft(intro, now) });
+    }
+  }
+  return out;
 }
 
 function setCircle(state, contactId, circle) {
@@ -713,6 +909,8 @@ function removeContact(state, contactId) {
   s.contacts = s.contacts.filter((x) => x.id !== contactId);
   s.requests = s.requests.filter((r) => r.contactId !== contactId);
   s.incoming = s.incoming.filter((r) => r.contactId !== contactId);
+  s.introAsks = s.introAsks.filter((a) => a.contactId !== contactId && a.aboutId !== contactId);
+  s.sentAsks = s.sentAsks.filter((a) => a.viaId !== contactId && a.aboutId !== contactId);
   return s;
 }
 
@@ -748,7 +946,14 @@ function setName(state, name) {
 function createRequest(state, contactId, flatId, form, now) {
   const c = contactOf(state, contactId);
   if (!c) return { error: GATE_MESSAGE };
-  const item = sharedBy(c).find((x) => x.flat.id === flatId);
+  let item = null;
+  if (isMet(c)) item = sharedBy(c).find((x) => x.flat.id === flatId);
+  else {
+    if (!introActive(c, now)) return { error: `Your intro to ${c.name} has expired. Meet and scan each other’s codes, or ask ${c.intro.byName || 'them'} to introduce you again.` };
+    const sd = secondDegree(state, now).find((x) => x.owner.id === c.id);
+    const f = sd && sd.flats.find((x) => x.id === flatId);
+    if (f) item = { flat: f, terms: f.terms };
+  }
   if (!item) return { error: 'That flat isn’t shared with you.' };
   if (!isDay(form.from) || !isDay(form.to)) return { error: 'Choose your arrival and departure dates.' };
   if (!(nights(form.from, form.to) >= 1)) return { error: 'Departure must be after arrival.' };
@@ -776,13 +981,19 @@ function answerIncoming(state, id, decision, reply, now) {
 
 // Apply a decoded message. inPerson: it was scanned face to face (or entered while meeting).
 // Returns { state, kind, contact } or { needsAdd: msg } or { gate: name } or { error }.
-function receive(state, msg, inPerson) {
+function receive(state, msg, inPerson, now = Date.now()) {
   if (msg.from.id === state.me.id) return { error: 'That’s your own code. Scan theirs instead.' };
   if (msg.to && msg.to !== state.me.id) return { error: 'This message is meant for someone else.' };
+  if (msg.t === 'intro' && !msg.people.some((p) => p.id === state.me.id)) return { error: 'This introduction is for other people.' };
   const c = contactOf(state, msg.from.id);
-  if (!c) {
-    if (msg.t === 'bundle' && inPerson) return { needsAdd: msg };
+  if (!c || (!isMet(c) && msg.t === 'bundle')) {
+    if (msg.t === 'bundle' && inPerson) return { needsAdd: msg, intro: c || null };
+    if (c) return { state, kind: 'same', contact: c };
     return { gate: msg.from.name };
+  }
+  if (!isMet(c) && msg.t !== 'request' && msg.t !== 'response') return { gate: msg.from.name };
+  if (!isMet(c) && msg.t === 'request' && !introActive(c, now)) {
+    return { error: `${c.name}’s intro has expired. Meet and scan each other’s codes, or ask ${c.intro.byName || 'your friend'} to introduce you again.` };
   }
   const s = clone(state);
   const sc = contactOf(s, c.id);
@@ -790,14 +1001,41 @@ function receive(state, msg, inPerson) {
     if (msg.flats === null || msg.ts <= c.bundleTs) return { state, kind: 'same', contact: c };
     sc.name = msg.from.name;
     sc.flats = msg.flats;
+    sc.via = msg.via || [];
     sc.bundleTs = msg.ts;
     return { state: s, kind: 'bundle', contact: sc };
+  }
+  if (msg.t === 'introreq') {
+    const about = contactOf(s, msg.about.id);
+    if (!isMet(about) || about.id === c.id) return { error: `${c.name} asked for an introduction to someone who isn’t in your people.` };
+    if (s.introAsks.some((a) => a.contactId === c.id && a.aboutId === about.id && !a.doneAt)) return { state, kind: 'same', contact: c };
+    s.introAsks = s.introAsks.filter((a) => !(a.contactId === c.id && a.aboutId === about.id));
+    s.introAsks.unshift({ id: uid(), contactId: c.id, aboutId: about.id, aboutName: about.name, createdAt: msg.ts, doneAt: 0 });
+    return { state: s, kind: 'introreq', contact: c, about };
+  }
+  if (msg.t === 'intro') {
+    const other = msg.people.find((p) => p.id !== state.me.id);
+    const ex = contactOf(s, other.id);
+    if (isMet(ex)) return { state, kind: 'same', contact: ex };
+    const until = Math.min(msg.ts, now + DAY_MS) + INTRO_DAYS * DAY_MS;
+    if (until <= now) return { error: `This introduction has run out. Ask ${c.name} to introduce you again.` };
+    if (ex) {
+      if (ex.intro.until >= until && ex.intro.by === c.id) return { state, kind: 'same', contact: ex };
+      ex.intro = { by: c.id, byName: c.name, until: Math.max(until, ex.intro.until) };
+      ex.name = other.name;
+      return { state: s, kind: 'intro', contact: ex, renewed: true };
+    }
+    const nc = { id: other.id, name: other.name, status: 'intro', circle: 'met', note: '', metAt: '', flats: [], via: [], bundleTs: 0, sentSig: '', intro: { by: c.id, byName: c.name, until } };
+    if (c.demo) nc.demo = true;
+    s.contacts.push(nc);
+    s.sentAsks = s.sentAsks.filter((a) => a.aboutId !== other.id);
+    return { state: s, kind: 'intro', contact: nc, renewed: false };
   }
   if (msg.t === 'request') {
     const q = msg.req;
     if (s.incoming.some((r) => r.id === q.id)) return { state, kind: 'same', contact: c };
     const flat = s.flats.find((f) => f.id === q.flatId);
-    if (!flat || !isShared(termsFor(flat, c.circle))) return { error: `${c.name} asked for a flat you no longer share with them.` };
+    if (!flat || !isShared(audienceTerms(state, flat, c, now))) return { error: `${c.name} asked for a flat you no longer share with them.` };
     s.incoming.unshift({ id: q.id, contactId: c.id, name: c.name, flatId: q.flatId, from: q.from, to: q.to, guests: q.guests, msg: q.msg, status: 'pending', createdAt: msg.ts });
     return { state: s, kind: 'request', contact: c };
   }
@@ -818,6 +1056,7 @@ return {
   CIRCLES, CIRCLE_LABEL, GATE_MESSAGE, STATE_VERSION, esc, makeId, uid, toneIndex, formatDay, nights, isoDay,
   termsFor, isShared, visibleTo, sharedBy, formatTerms, flatFromForm,
   normalize, isLegacyDemo, newState, contactOf, addContact, setCircle, setNote, removeContact,
+  AUDIENCES, INTRO_DAYS, isMet, introActive, introDaysLeft, audienceTerms, secondDegree, askIntro, makeIntro, setIntroUntil, introMsg, viaFor,
   saveFlat, deleteFlat, setName, setShowExamples, createRequest, answerIncoming,
   encode, decode, cardMsg, bundleMsg, requestMsg, responseMsg, bundleSig, needsUpdate, markSent, receive,
   equalEarth, equalEarthInverse, snapCoord, mapPlaces, unlocated, fitBounds,
@@ -3143,7 +3382,7 @@ const $ = (s) => document.querySelector(s);
 const STORAGE_KEY = 'tessera.demo.v1'; // never change: a new key means everyone starts empty
 const QR_MAX = 1800;
 const TABS = [['map', 'Map'], ['stays', 'Stays'], ['flats', 'Flats'], ['people', 'People'], ['you', 'You']];
-const TITLES = { map: 'Map', stays: 'Stays', flats: 'Your flats', people: 'People', you: 'You' };
+const TITLES = { map: 'Map', stays: 'Stays', flats: 'Your flats', people: 'People', you: 'You', guide: 'How it works' };
 const ICONS = {
   map: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3.2 3 3.2 15 0 18M12 3c-3.2 3-3.2 15 0 18"/>',
   stays: '<path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/>',
@@ -3431,8 +3670,10 @@ function buildWorld() {
 
 function locator(lat, lon, kind) {
   const { X, Y } = project(lat, lon);
-  const w = 1100, h = 688;
-  return `<svg class="locator" viewBox="${(X - w / 2).toFixed(1)} ${(Y - h / 2).toFixed(1)} ${w} ${h}" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><use href="#w-land"/><use href="#w-coast"/><circle class="loc-halo ${kind}" cx="${X.toFixed(1)}" cy="${Y.toFixed(1)}" r="80"/><circle class="loc-dot ${kind}" cx="${X.toFixed(1)}" cy="${Y.toFixed(1)}" r="26"/></svg>`;
+  // About 6 degrees wide: the city and its surroundings, with the coast and borders for orientation.
+  const w = 96, h = 60;
+  const cx = X.toFixed(1), cy = Y.toFixed(1);
+  return `<svg class="locator" viewBox="${(X - w / 2).toFixed(1)} ${(Y - h / 2).toFixed(1)} ${w} ${h}" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><use href="#w-land"/><use href="#w-borders"/><use href="#w-coast"/><circle class="loc-halo ${kind}" cx="${cx}" cy="${cy}" r="9"/><circle class="loc-dot ${kind}" cx="${cx}" cy="${cy}" r="3.4"/></svg>`;
 }
 
 function createMap(opts = {}) {
@@ -3464,7 +3705,7 @@ function createMap(opts = {}) {
       const { X, Y } = project(p.lat, p.lon);
       const [sx, sy] = toScreen(X, Y);
       if (sx < -30 || sx > W + 30 || sy < -30 || sy > H + 30) return;
-      html += `<g class="pin ${p.kind}" data-key="${esc(p.key)}" transform="translate(${sx.toFixed(1)} ${sy.toFixed(1)})"><circle class="halo" r="24"/><circle class="dot" r="11"/><text y="4">${i + 1}</text></g>`;
+      html += `<g class="pin ${p.kind}${p.kind === 'shared' && p.circle ? ' c-' + p.circle : ''}" data-key="${esc(p.key)}" transform="translate(${sx.toFixed(1)} ${sy.toFixed(1)})"><circle class="halo" r="24"/><circle class="dot" r="11"/><text y="4">${i + 1}</text></g>`;
     });
     pinsG.innerHTML = html;
     if (picked) {
@@ -3613,9 +3854,11 @@ function render() {
     return;
   }
   tabs.hidden = false;
-  $('#top').innerHTML = `<div class="topbar"><h1>${TITLES[tab]}</h1><button class="btn" data-act="receive">Receive</button></div>`;
+  const right = tab === 'guide' ? '<button class="btn" data-act="tab" data-tab="you">Back</button>' : '<button class="btn" data-act="receive">Receive</button>';
+  $('#top').innerHTML = `<div class="topbar"><h1>${TITLES[tab]}</h1>${right}</div>`;
   $('#view').innerHTML = views[tab]();
-  tabs.innerHTML = TABS.map(([id, label]) => `<button data-act="tab" data-tab="${id}"${id === tab ? ' aria-current="page"' : ''}><svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[id]}</svg>${label}</button>`).join('');
+  const navTab = tab === 'guide' ? 'you' : tab;
+  tabs.innerHTML = TABS.map(([id, label]) => `<button data-act="tab" data-tab="${id}"${id === navTab ? ' aria-current="page"' : ''}><svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[id]}</svg>${label}</button>`).join('');
   if (tab === 'map') mountMap();
 }
 
@@ -3734,13 +3977,23 @@ function closeDeck() {
 
 // Shows a code as QR plus Share and Copy. onSent runs once the user has passed it on.
 function sendCode(o) {
-  outbox = { ...o, code: Core.encode(o.msg), done: false };
+  const to = o.msg.to ? contactOf(o.msg.to) : null;
+  outbox = { ...o, code: Core.encode(o.msg), done: false, test: !!(to && to.demo && testKey(to.id)) };
   showSheet(outboxHtml);
 }
 
 function outboxHtml() {
   const o = outbox;
   const fits = o.code.length <= QR_MAX;
+  if (o.test) {
+    const n = esc(TEST[testKey(o.msg.to)].name);
+    return `<h2>${esc(o.title)}</h2>
+      <p class="lead">${esc(o.lead)}</p>
+      <p class="hint">${n} is a test person, so this code stays on your phone. ${n} answers in a moment, through the same Receive step a real code goes through.</p>
+      ${fits ? `<div class="qrwrap">${qrSvg(o.code, 'QR code to scan')}</div>` : ''}
+      <button class="btn primary block" data-act="outdeliver">Deliver to ${n}</button>
+      <button class="btn quiet block" data-act="close">Cancel</button>`;
+  }
   return `<h2>${esc(o.title)}</h2>
     <p class="lead">${esc(o.lead)}</p>
     ${fits ? `<div class="qrwrap">${qrSvg(o.code, 'QR code to scan')}</div>` : '<p class="hint">Too long for a QR code. Share or copy it instead.</p>'}
@@ -3782,7 +4035,12 @@ function onCode(text, inPerson, form) {
   const r = Core.receive(state, d.msg, inPerson);
   if (r.error) { if (form) formError(form, r.error); else toast(r.error); resumeScan(); return; }
   if (r.gate) { showSheet(() => gateHtml(r.gate)); return; }
-  if (r.needsAdd) { meet = { step: 'add', msg: r.needsAdd }; showSheet(meetHtml); return; }
+  if (r.needsAdd) {
+    const k = testKey(r.needsAdd.from.id);
+    meet = { step: 'add', msg: r.needsAdd, intro: r.intro || null, circle: k === 'sam' ? 'friends' : k ? 'friends' : 'met' };
+    showSheet(meetHtml);
+    return;
+  }
   const first = firstName(r.contact.name);
   if (r.kind === 'same') { closeSheet(); toast(`Already up to date with ${first}.`); return; }
   closeSheet();
@@ -3798,6 +4056,15 @@ function onCode(text, inPerson, form) {
     tab = 'stays';
     commit(r.state);
     toast(`${first} ${r.request.status === 'accepted' ? 'accepted' : 'declined'} your request.`);
+  } else if (r.kind === 'introreq') {
+    tab = 'people';
+    commit(r.state);
+    toast(`${first} asks you to introduce them to ${firstName(r.about.name)}. See People.`);
+  } else if (r.kind === 'intro') {
+    tab = 'stays';
+    commit(r.state);
+    const by = firstName(r.contact.intro.byName);
+    toast(r.renewed ? `${by} introduced you to ${first} again: ${Core.INTRO_DAYS} more days.` : `${by} introduced you to ${first}. You have ${Core.INTRO_DAYS} days to meet.`);
   }
   history.replaceState(null, '', '#' + tab);
   window.scrollTo(0, 0);
@@ -3805,11 +4072,21 @@ function onCode(text, inPerson, form) {
 
 /* ---------- views ---------- */
 
-const views = { map: viewMap, stays: viewStays, flats: viewFlats, people: viewPeople, you: viewYou };
+const views = { map: viewMap, stays: viewStays, flats: viewFlats, people: viewPeople, you: viewYou, guide: viewGuide };
+
+const relLabel = (rel, viaName) => {
+  const f = firstName(viaName);
+  return rel === 'family' ? `${f}’s family` : rel === 'friends' ? `${f}’s friend` : `someone ${f} met`;
+};
+const circleChip = (circle) => `<span class="chip c-${circle}">${circle === 'friends' ? 'Friend' : LABEL[circle]}</span>`;
+const testChip = (c) => (c && c.demo ? '<span class="chip test">Test</span>' : '');
+const metContacts = () => state.contacts.filter((c) => Core.isMet(c));
+const introContacts = () => state.contacts.filter((c) => !Core.isMet(c));
 
 function viewMap() {
   const shown = visiblePlaces(Core.mapPlaces(state, EXAMPLES));
-  const chips = [['all', 'All'], ['mine', 'Mine'], ['shared', 'Shared with me']].concat(state.showExamples ? [['example', 'Examples']] : [])
+  const hasVia = Core.secondDegree(state, Date.now()).length > 0;
+  const chips = [['all', 'All'], ['mine', 'Mine'], ['shared', 'Met']].concat(hasVia ? [['via', 'Through']] : []).concat(state.showExamples ? [['example', 'Examples']] : [])
     .map(([id, l]) => `<button type="button" class="seg${mapFilter === id ? ' on' : ''}" aria-pressed="${mapFilter === id}" data-act="mapfilter" data-f="${id}">${l}</button>`).join('');
   const rows = shown.map((p, i) => placeRow(p, i + 1)).join('');
   const unlocated = Core.unlocated(state).map((f) => `<div class="row-index">
@@ -3820,38 +4097,68 @@ function viewMap() {
   const hint = state.showExamples && !state.contacts.length ? '<p class="hint">The dashed places are examples. Places from people you meet show up here too.</p>' : '';
   return `<div class="segs">${chips}</div>
     <div id="map-slot" class="map-slot"></div>
-    <p class="legend"><span><i class="mine"></i>Yours</span><span><i></i>Shared with you</span>${state.showExamples ? '<span><i class="ex"></i>Example</span>' : ''}<span><i class="halo"></i>Approximate area</span></p>
+    <p class="legend"><span><i class="mine"></i>Yours</span><span><i class="fam"></i>Family</span><span><i></i>Friends, met</span>${hasVia ? '<span><i class="via"></i>Through your people</span>' : ''}${state.showExamples ? '<span><i class="ex"></i>Example</span>' : ''}</p>
     ${hint}<div class="list">${rows}${unlocated}${empty}</div>`;
 }
 
+function locKind(p) { return p.kind === 'shared' && p.circle === 'family' ? 'shared family' : p.kind; }
+
 function placeRow(p, n) {
-  const sub = p.kind === 'mine' ? 'Yours' : p.kind === 'example' ? `Example · ${esc(Core.formatTerms(p.terms))}` : `${esc(p.contactName)} · ${esc(Core.formatTerms(p.terms))}`;
+  const t = esc(Core.formatTerms(p.terms));
+  const sub = p.kind === 'mine' ? 'Yours'
+    : p.kind === 'example' ? `Example · ${t}`
+    : p.kind === 'via' ? `${esc(p.contactName)} · via ${esc(firstName(p.viaName))} · ${t}`
+    : `${esc(p.contactName)} · ${p.circle === 'friends' ? 'Friend' : esc(LABEL[p.circle] || '')} · ${t}`;
   return `<button class="row-index" data-act="place" data-key="${esc(p.key)}">
     <span class="no">${pad2(n)}</span>
     <span class="body"><span class="area">${esc(p.area)}</span><span class="ttl">${esc(p.title)}</span><span class="sub">${sub}</span></span>
-    ${locator(p.lat, p.lon, p.kind)}
+    ${locator(p.lat, p.lon, locKind(p))}
   </button>`;
 }
 
 function placeHtml(key) {
   const p = Core.mapPlaces(state, EXAMPLES).find((x) => x.key === key);
   if (!p) return '<p class="empty">This place is no longer available.</p><button class="btn block" data-act="close">Close</button>';
+  const head = (label) => `<p class="label" style="margin-top:0">${label}</p>
+    <div class="flat-top"><div><h2>${esc(p.title)}</h2><p class="meta">${esc(p.area)} · approximate area</p></div>${locator(p.lat, p.lon, locKind(p))}</div>`;
   if (p.kind === 'example') {
-    return `<p class="label" style="margin-top:0">Example place</p>
-      <div class="flat-top"><div><h2>${esc(p.title)}</h2><p class="meta">${esc(p.area)} · approximate area</p></div>${locator(p.lat, p.lon, p.kind)}</div>
+    return `${head('Example place')}
       <p class="terms">${esc(Core.formatTerms(p.terms))}</p>
       <p class="hint">A made-up place that shows how Tessera looks. You can’t request it. Real places appear when people you have met share theirs.</p>
       <button class="btn quiet block" data-act="close">Close</button>
       <button class="btn quiet block" data-act="toggleexamples">Hide examples</button>`;
   }
+  if (p.kind === 'via') {
+    const sd = Core.secondDegree(state, Date.now()).find((x) => x.owner.id === p.contactId);
+    return `${head(`${esc(p.contactName)} · ${esc(relLabel(p.rel, p.viaName))}`)}
+      <div class="foot"><span class="terms">${esc(Core.formatTerms(p.terms))}</span><span class="chip via">Through ${esc(firstName(p.viaName))}</span></div>
+      ${sd ? viaActions(sd, p.flatId) : ''}
+      <button class="btn quiet block" data-act="close">Close</button>`;
+  }
   const action = p.kind === 'shared'
-    ? `<div class="foot"><span class="terms">${esc(Core.formatTerms(p.terms))}</span></div>
+    ? `<div class="foot"><span class="terms">${esc(Core.formatTerms(p.terms))}</span>${circleChip(p.circle)}</div>
        <button class="btn primary block" data-act="request" data-c="${esc(p.contactId)}" data-f="${esc(p.flatId)}">Request stay</button>`
     : `<button class="btn block" data-act="editflat" data-id="${esc(p.flatId)}">Edit flat</button>`;
-  return `<p class="label" style="margin-top:0">${p.kind === 'mine' ? 'Your flat' : esc(p.contactName)}</p>
-    <div class="flat-top"><div><h2>${esc(p.title)}</h2><p class="meta">${esc(p.area)} · approximate area</p></div>${locator(p.lat, p.lon, p.kind)}</div>
+  return `${head(p.kind === 'mine' ? 'Your flat' : esc(p.contactName))}
     ${action}
     <button class="btn quiet block" data-act="close">Close</button>`;
+}
+
+// What you can do with a flat one step away, depending on the intro.
+function viaActions(sd, flatId) {
+  const via = firstName(sd.via.name);
+  const owner = firstName(sd.owner.name);
+  if (sd.status === 'active') {
+    return `<p class="hint">${esc(via)} introduced you. ${plural(sd.daysLeft, 'day', 'days')} left to meet ${esc(owner)} and scan each other’s codes.</p>
+      ${flatId ? `<button class="btn primary block" data-act="request" data-c="${esc(sd.owner.id)}" data-f="${esc(flatId)}">Request stay</button>` : ''}`;
+  }
+  if (sd.status === 'expired') {
+    return `<p class="hint">The intro ran out. Meet ${esc(owner)} and scan each other’s codes, or ask ${esc(via)} to introduce you again for another ${Core.INTRO_DAYS} days.</p>
+      <button class="btn block" data-act="askintro" data-via="${esc(sd.via.id)}" data-o="${esc(sd.owner.id)}">Ask ${esc(via)} again</button>`;
+  }
+  return `<p class="hint">You haven’t met ${esc(owner)}. ${esc(via)} can introduce you. Then you have ${Core.INTRO_DAYS} days to stay in touch directly and meet in person.</p>
+    ${sd.asked ? `<p class="meta">You asked ${esc(via)} on ${Core.formatDay(sd.asked.at)}.</p>` : ''}
+    <button class="btn ${sd.asked ? '' : 'primary'} block" data-act="askintro" data-via="${esc(sd.via.id)}" data-o="${esc(sd.owner.id)}">${sd.asked ? 'Ask again' : `Ask ${esc(via)} to introduce you`}</button>`;
 }
 
 function exampleSection() {
@@ -3868,30 +4175,55 @@ function exampleSection() {
 }
 
 function viewStays() {
-  if (!state.contacts.length) {
-    return `<p class="lead">Nobody yet. Meet someone and the flats they share with you show up here.</p><button class="btn primary block" data-act="meet">Meet someone</button>${exampleSection()}`;
+  const now = Date.now();
+  const met = metContacts();
+  const sd = Core.secondDegree(state, now);
+  let html = '';
+  if (!met.length) {
+    html += `<p class="lead">Nobody yet. Meet someone and the flats they share with you show up here.</p><button class="btn primary block" data-act="meet">Meet someone</button>
+      <p class="fine">Want to try it first? <button class="linkbtn" data-act="practice">Practise with test people</button></p>`;
+  } else {
+    html += `<p class="label" style="margin-top:0">People you’ve met</p>` + met.map((c) => {
+      const shared = Core.sharedBy(c);
+      const body = shared.length
+        ? shared.map((x) => stayRow(c, x, c.circle)).join('')
+        : `<p class="empty">${esc(firstName(c.name))} hasn’t shared a flat with you yet. When they send you their flats, tap Receive.</p>`;
+      return `<section class="person"><div class="person-head"><h2>${esc(c.name)} ${circleChip(c.circle)}${testChip(c)}</h2><p class="meta">${metLine(c)}</p></div>${body}</section>`;
+    }).join('');
   }
-  const people = state.contacts.map((c) => {
-    const shared = Core.sharedBy(c);
-    const body = shared.length
-      ? shared.map((x) => stayRow(c, x)).join('')
-      : `<p class="empty">${esc(firstName(c.name))} hasn’t shared a flat with you yet. When they send you their flats, tap Receive.</p>`;
-    return `<section class="person"><div class="person-head"><h2>${esc(c.name)}</h2><p class="meta">${metLine(c)}</p></div>${body}</section>`;
-  }).join('');
+  if (sd.length) {
+    html += `<p class="label">Through your people</p><p class="hint" style="margin-top:0">People you haven’t met, whose flats your people may pass on. You need an intro to ask for a stay.</p>`
+      + sd.map((x) => `<section class="person via"><div class="person-head"><h2>${esc(x.owner.name)} <span class="chip via">via ${esc(firstName(x.via.name))}</span>${testChip(x.via)}</h2>
+        <p class="meta">${esc(relLabel(x.rel, x.via.name))}${x.status === 'active' ? ` · introduced · ${plural(x.daysLeft, 'day', 'days')} left` : x.status === 'expired' ? ' · intro ran out' : ''}</p></div>
+        ${x.flats.map((f) => viaRow(x, f)).join('')}
+        ${viaActions(x, null)}
+      </section>`).join('');
+  }
   const reqs = state.requests.length
     ? `<section class="person" id="requests"><div class="person-head"><h2>Your requests</h2></div>${state.requests.map(requestRow).join('')}</section>`
     : '';
-  return people + reqs + exampleSection();
+  return html + reqs + exampleSection();
 }
 
-function stayRow(c, { flat, terms }) {
-  return `<article class="flat">
-    <div class="flat-top"><div><span class="area">${esc(flat.area)}</span><h3>${esc(flat.title)}</h3></div>${Number.isFinite(flat.lat) ? locator(flat.lat, flat.lon, 'shared') : ''}</div>
+function stayRow(c, { flat, terms }, circle) {
+  return `<article class="flat c-${circle}">
+    <div class="flat-top"><div><span class="area">${esc(flat.area)}</span><h3>${esc(flat.title)}</h3></div>${Number.isFinite(flat.lat) ? locator(flat.lat, flat.lon, circle === 'family' ? 'shared family' : 'shared') : ''}</div>
     ${flat.desc ? `<p>${esc(flat.desc)}</p>` : ''}
     ${pips(flat.rooms, flat.beds)}
     ${flat.avail ? `<p class="meta">Available: ${esc(flat.avail)}</p>` : ''}
     <div class="foot"><span class="terms">${esc(Core.formatTerms(terms))}</span>
     <button class="btn" data-act="request" data-c="${esc(c.id)}" data-f="${esc(flat.id)}">Request stay</button></div>
+  </article>`;
+}
+
+function viaRow(x, flat) {
+  return `<article class="flat via">
+    <div class="flat-top"><div><span class="area">${esc(flat.area)}</span><h3>${esc(flat.title)}</h3></div>${Number.isFinite(flat.lat) ? locator(flat.lat, flat.lon, 'via') : ''}</div>
+    ${flat.desc ? `<p>${esc(flat.desc)}</p>` : ''}
+    ${pips(flat.rooms, flat.beds)}
+    ${flat.avail ? `<p class="meta">Available: ${esc(flat.avail)}</p>` : ''}
+    <div class="foot"><span class="terms">${esc(Core.formatTerms(flat.terms))}</span>
+    ${x.status === 'active' ? `<button class="btn" data-act="request" data-c="${esc(x.owner.id)}" data-f="${esc(flat.id)}">Request stay</button>` : `<span class="chip via">Needs intro</span>`}</div>
   </article>`;
 }
 
@@ -3919,14 +4251,23 @@ function viewFlats() {
   return add + hint + `<div class="list" style="margin-top:20px">${state.flats.map(myFlat).join('')}</div>`;
 }
 
+function throughLine(f) {
+  const t = Core.termsFor(f, 'through');
+  const pass = f.passOn || [];
+  if (!Core.isShared(t) || !pass.length) return '';
+  return `Through my ${pass.map((c) => LABEL[c]).join(', ')}: ${Core.formatTerms(t).toLowerCase()}`;
+}
+
 function myFlat(f) {
-  const line = CIRCLES.map((c) => `${LABEL[c]} ${Core.formatTerms(Core.termsFor(f, c)).toLowerCase()}`).join(' · ');
-  const priv = CIRCLES.every((c) => !Core.isShared(Core.termsFor(f, c)));
+  const line = Core.CIRCLES.map((c) => `${LABEL[c]} ${Core.formatTerms(Core.termsFor(f, c)).toLowerCase()}`).join(' · ');
+  const priv = Core.CIRCLES.every((c) => !Core.isShared(Core.termsFor(f, c)));
+  const th = throughLine(f);
   const inc = state.incoming.filter((r) => r.flatId === f.id).map((r) => incomingRow(r, f)).join('');
   const loc = Number.isFinite(f.lat) ? locator(f.lat, f.lon, 'mine') : '';
   return `<article class="myflat">
     <div class="flat-top"><div><span class="area">${esc(f.area)}</span><h3>${esc(f.title)}</h3></div>${loc}</div>
     <p class="meta">${priv ? 'Private. Nobody sees this.' : esc(line)}</p>
+    ${th ? `<p class="meta">${esc(th)}</p>` : ''}
     ${f.desc ? `<p>${esc(f.desc)}</p>` : ''}
     ${pips(f.rooms, f.beds)}
     ${Number.isFinite(f.lat) ? '' : '<p class="meta">No location yet. Edit the flat to place it on the map.</p>'}
@@ -3937,13 +4278,15 @@ function myFlat(f) {
 
 function incomingRow(r, f) {
   const n = Core.nights(r.from, r.to);
+  const c = contactOf(r.contactId);
+  const who = c && !Core.isMet(c) ? ` <span class="chip via">via ${esc(firstName(c.intro.byName))}</span>` : '';
   const foot = r.status === 'pending'
     ? `<div class="row"><button class="btn primary" data-act="answer" data-id="${esc(r.id)}" data-d="accepted">Accept</button><button class="btn" data-act="answer" data-id="${esc(r.id)}" data-d="declined">Decline</button></div>`
     : `<p class="status ${r.status}">${r.status === 'accepted' ? (f.arrival ? 'Accepted, with your arrival notes' : 'Accepted') : 'Declined'}</p>
        ${r.reply ? `<p class="quote">“${esc(r.reply)}”</p>` : ''}
        <div class="row"><button class="btn" data-act="resendanswer" data-id="${esc(r.id)}">Send answer again</button></div>`;
   return `<div class="request">
-    <p><strong>${esc(r.name)}</strong> asks to stay</p>
+    <p><strong>${esc(r.name)}</strong>${who} asks to stay</p>
     <p class="meta">${Core.formatDay(r.from)} to ${Core.formatDay(r.to)} · ${plural(n, 'night', 'nights')} · ${plural(r.guests, 'guest', 'guests')}</p>
     ${r.msg ? `<p class="quote">“${esc(r.msg)}”</p>` : ''}
     ${foot}
@@ -3951,22 +4294,49 @@ function incomingRow(r, f) {
 }
 
 function viewPeople() {
-  const list = state.contacts.map((c) => `<button class="row-btn" data-act="contact" data-id="${esc(c.id)}">
+  const now = Date.now();
+  const asks = state.introAsks.map((a) => {
+    const asker = contactOf(a.contactId);
+    if (!asker) return '';
+    return `<div class="request"><p><strong>${esc(asker.name)}</strong> asks you to introduce them to <strong>${esc(a.aboutName)}</strong></p>
+      <p class="meta">${a.doneAt ? `Introduced on ${Core.formatDay(a.doneAt)}` : `Asked on ${Core.formatDay(a.createdAt)}`}</p>
+      <div class="row"><button class="btn ${a.doneAt ? '' : 'primary'}" data-act="introduce" data-id="${esc(a.id)}">${a.doneAt ? 'Introduce again' : 'Introduce'}</button></div></div>`;
+  }).join('');
+  const list = metContacts().map((c) => `<button class="row-btn" data-act="contact" data-id="${esc(c.id)}">
       <span><span class="name">${esc(c.name)}</span><span class="meta block">${metLine(c)}</span></span>
-      <span class="chips">${Core.needsUpdate(state, c) ? '<span class="chip blue">Update</span>' : ''}<span class="chip">${LABEL[c.circle]}</span></span></button>`).join('');
+      <span class="chips">${testChip(c)}${Core.needsUpdate(state, c) ? '<span class="chip blue">Update</span>' : ''}${circleChip(c.circle)}</span></button>`).join('');
+  const intros = introContacts().map((c) => {
+    const on = Core.introActive(c, now);
+    return `<button class="row-btn" data-act="contact" data-id="${esc(c.id)}">
+      <span><span class="name">${esc(c.name)}</span><span class="meta block">Introduced by ${esc(c.intro.byName)} · ${on ? plural(Core.introDaysLeft(c, now), 'day', 'days') + ' left to meet' : 'ran out'}</span></span>
+      <span class="chips">${testChip(c)}<span class="chip via">${on ? 'Intro' : 'Expired'}</span></span></button>`;
+  }).join('');
   return `<button class="btn primary block" data-act="meet">Meet someone</button>
-    <div class="list" style="margin-top:20px">${list || '<p class="empty">Nobody yet. Meet someone in person and scan each other’s codes.</p>'}</div>
-    <p class="fine">Got a code from someone you know? Tap Receive at the top.</p>`;
+    ${asks ? `<p class="label">Introductions</p>${asks}` : ''}
+    <p class="label">Met</p>
+    <div class="list">${list || '<p class="empty">Nobody yet. Meet someone in person and scan each other’s codes.</p>'}</div>
+    ${intros ? `<p class="label">Introduced, not met yet</p><div class="list">${intros}</div>` : ''}
+    <p class="fine">Got a code from someone you know? Tap Receive at the top.${state.contacts.some((c) => c.demo) ? '' : ' Want to try it first? <button class="linkbtn" data-act="practice">Practise with test people</button>'}</p>`;
 }
 
 function viewYou() {
   const last = state.backupAt ? Core.formatDay(state.backupAt) : 'never';
+  const tests = state.contacts.filter((c) => c.demo);
+  const testIntro = tests.some((c) => !Core.isMet(c) && Core.introActive(c, Date.now()));
   return `<p class="label" style="margin-top:0">Name</p>
     <form data-form="name" class="inline" novalidate><input name="name" maxlength="40" value="${esc(state.me.name)}" aria-label="Your name"><button class="btn">Save</button><p class="error" role="alert" hidden></p></form>
     <p class="meta">ID ${esc(state.me.id)}</p>
+    <p class="label">How it works</p>
+    <div class="list"><button class="row-btn" data-act="tab" data-tab="guide"><span><span class="name">How Tessera works</span><span class="meta block">Architecture, meeting, codes, circles and intros, as diagrams</span></span><span class="chip">Open</span></button></div>
     <p class="label">Backup</p>
     <p class="hint" style="margin-top:0">Your data lives only on this device. Last backup: ${esc(last)}.</p>
     <div class="row"><button class="btn primary" data-act="savebackup">Save backup</button><button class="btn" data-act="importbackup">Load backup</button></div>
+    <p class="label">Test people</p>
+    <p class="hint" style="margin-top:0">Made-up people to practise with: Sam to meet as a friend, his sister Lea and his friend Jonas through him, and Dad in your family. Codes you send them stay on this phone.</p>
+    <button class="btn block" data-act="practice">Practise meeting</button>
+    ${tests.some((c) => c.id === TEST.dad.id) ? '' : '<button class="btn block" data-act="adddad">Add Dad to your family</button>'}
+    ${testIntro ? '<button class="btn block" data-act="expireintros">Let test intros run out</button>' : ''}
+    ${tests.length ? '<button class="btn danger block" data-act="removetests">Remove test people</button>' : ''}
     <p class="label">Example places</p>
     <p class="hint" style="margin-top:0">Made-up flats in Berlin, Paris, New York, Milan, Barcelona, Lisbon, Vienna and Copenhagen. They are never saved in your data or sent to anyone.</p>
     <button class="btn block" data-act="toggleexamples">${state.showExamples ? 'Hide example places' : 'Show example places'}</button>
@@ -3987,9 +4357,11 @@ function meetHtml() {
   if (meet.step === 'add') {
     const m = meet.msg;
     const n = Array.isArray(m.flats) ? m.flats.length : 0;
+    const intro = meet.intro;
     return `<form data-form="meetadd" novalidate>
       <h2>You met ${esc(m.from.name)}</h2><p class="meta">ID ${esc(m.from.id)}${n ? ' · shares ' + plural(n, 'flat', 'flats') + ' with you' : ''}</p>
-      <p class="label">Put them in a circle</p><div class="segs">${circleRadios('met')}</div>
+      ${intro ? `<p class="hint">${esc(intro.intro.byName)} introduced you. Adding ${esc(firstName(m.from.name))} now makes the connection permanent.</p>` : ''}
+      <p class="label">Put them in a circle</p><div class="segs">${circleRadios(meet.circle || 'met')}</div>
       <label>Note<input name="note" maxlength="60" placeholder="Where you met"></label>
       <p class="hint">Circles are private. They decide which of your flats ${esc(firstName(m.from.name))} sees, and on what terms.</p>
       <button class="btn primary block">Add to people</button>
@@ -4010,6 +4382,30 @@ function meetHtml() {
     <button class="btn quiet block" data-act="close">Close</button>`;
 }
 
+function practiceHtml() {
+  const options = testToMeet();
+  const rows = options.map((k) => {
+    const p = TEST[k];
+    const c = contactOf(p.id);
+    const why = c ? `Validates the intro from ${esc(c.intro.byName)}` : k === 'sam' ? 'Put him in your Friends. He passes on flats from his sister Lea and his friend Jonas.' : '';
+    return `<button class="row-btn" data-act="practicecard" data-k="${k}"><span><span class="name">Meet ${esc(p.name)}</span><span class="meta block">${why}</span></span><span class="chip">Show code</span></button>`;
+  }).join('');
+  return `<h2>Practise meeting</h2>
+    <p class="lead">These are test people. Their codes work exactly like real ones, and nothing you send them leaves this phone.</p>
+    <div class="list">${rows || '<p class="empty">You’ve met all test people. Ask Sam to introduce you to Lea or Jonas under Stays.</p>'}</div>
+    <button class="btn quiet block" data-act="close">Close</button>`;
+}
+
+function practiceCardHtml(k) {
+  const p = TEST[k];
+  const code = Core.encode(Core.cardMsg(testState(k), Date.now()));
+  return `<h2>${esc(p.name)}’s code</h2>
+    <p class="lead">To test the camera, open Tessera on a second screen, for example index.html on a laptop, go to You, Practise meeting, and show this code there. Then tap Scan here on your phone.</p>
+    <div class="qrwrap">${qrSvg(code, 'QR code of ' + p.name)}</div>
+    <div class="row"><button class="btn primary" data-act="simscan" data-k="${k}">Simulate scan</button><button class="btn" data-act="meetscan">Scan</button></div>
+    <button class="btn quiet block" data-act="practice">Back</button>`;
+}
+
 function receiveHtml() {
   return `<h2>Receive</h2>
     <p class="lead">Scan a code, or paste one that someone sent you.</p>
@@ -4020,17 +4416,31 @@ function receiveHtml() {
 function contactHtml(id) {
   const c = contactOf(id);
   if (!c) return '<p class="empty">This person is no longer in your people.</p><button class="btn block" data-act="close">Close</button>';
-  const seen = Core.visibleTo(state.flats, c.circle);
   const first = esc(firstName(c.name));
+  const now = Date.now();
+  if (!Core.isMet(c)) {
+    const on = Core.introActive(c, now);
+    const seen = state.flats.filter((f) => Core.isShared(Core.audienceTerms(state, f, c, now)));
+    return `<h2>${esc(c.name)} ${testChip(c)}</h2><p class="meta">Introduced by ${esc(c.intro.byName)} · ID ${esc(c.id)}</p>
+      <p class="hint">${on ? `${plural(Core.introDaysLeft(c, now), 'day', 'days')} left. Until then you can ask each other for stays directly. Meet and scan each other’s codes to make it permanent.` : `The intro ran out. Meet ${first} and scan each other’s codes, or ask ${esc(firstName(c.intro.byName))} to introduce you again.`}</p>
+      <p class="label">What ${first} sees of your flats</p>
+      <ul class="lines">${on && seen.length ? seen.map((f) => `<li><span>${esc(f.title)}</span><span class="terms">${esc(Core.formatTerms(Core.termsFor(f, 'through')))}</span></li>`).join('') : `<li class="empty">${on ? 'Nothing. Set “Through my people” terms on a flat and let the circle of ' + esc(firstName(c.intro.byName)) + ' pass it on.' : 'Nothing while the intro has run out.'}</li>`}</ul>
+      <button class="btn primary block" data-act="meet">Meet ${first} now</button>
+      <div class="row"><button class="btn danger" data-act="removecontact" data-id="${esc(c.id)}">Remove</button><button class="btn" data-act="close">Done</button></div>`;
+  }
+  const seen = Core.visibleTo(state.flats, c.circle);
   const stale = Core.needsUpdate(state, c);
+  const via = Core.viaFor(state, c);
   const segs = CIRCLES.map((k) => `<button type="button" class="seg${k === c.circle ? ' on' : ''}" aria-pressed="${k === c.circle}" data-act="circle" data-id="${esc(c.id)}" data-c="${k}">${LABEL[k]}</button>`).join('');
   const list = seen.length
     ? seen.map((x) => `<li><span>${esc(x.flat.title)}</span><span class="terms">${esc(Core.formatTerms(x.terms))}</span></li>`).join('')
     : `<li class="empty">Nothing yet. Set terms for the ${esc(LABEL[c.circle])} circle on one of your flats.</li>`;
-  return `<h2>${esc(c.name)}</h2><p class="meta">${metLine(c)}</p><p class="meta">ID ${esc(c.id)}</p>
+  const passing = via.length ? `<p class="label">You pass on to ${first}</p><ul class="lines">${via.map((v) => `<li><span>${esc(v.owner.name)}</span><span class="terms">${plural(v.flats.length, 'flat', 'flats')}</span></li>`).join('')}</ul>` : '';
+  return `<h2>${esc(c.name)} ${testChip(c)}</h2><p class="meta">${metLine(c)}</p><p class="meta">ID ${esc(c.id)}${c.intro ? ' · introduced by ' + esc(c.intro.byName) : ''}</p>
     <p class="label">Circle</p><div class="segs">${segs}</div>
     <p class="hint">Circles are private. ${first} only ever sees the terms you set for this circle.</p>
     <p class="label">What ${first} sees of your flats</p><ul class="lines">${list}</ul>
+    ${passing}
     <p class="hint">${stale ? `${first} has an older version. Send an update so they see this.` : `${first} is up to date.`}</p>
     <button class="btn ${stale ? 'primary' : ''} block" data-act="sendflats" data-id="${esc(c.id)}">Send your flats to ${first}</button>
     <div class="row"><button class="btn danger" data-act="removecontact" data-id="${esc(c.id)}">Remove</button><button class="btn" data-act="close">Done</button></div>`;
@@ -4039,7 +4449,7 @@ function contactHtml(id) {
 function gateHtml(name) {
   return `<h2>Meet first</h2>
     <p class="lead">This code is from ${esc(name)}, who isn’t in your people.</p>
-    <p class="hint">You can only add someone by scanning their code in person. Once you have met, codes they send you open normally.</p>
+    <p class="hint">You can only add someone by scanning their code in person, or through an intro from someone you have met. Once you are connected, codes they send you open normally.</p>
     <button class="btn primary block" data-act="meet">Meet someone</button>
     <button class="btn quiet block" data-act="close">Close</button>`;
 }
@@ -4058,17 +4468,20 @@ function answerHtml(id, decision) {
   </form>`;
 }
 
+function termRow(v, c, label) {
+  const t = Core.termsFor(v, c);
+  const opt = (val, text) => `<option value="${val}"${t.mode === val ? ' selected' : ''}>${text}</option>`;
+  return `<div class="termrow"><span>${label}</span>
+    <select name="${c}_mode" class="terms-mode" aria-label="${label} terms">${opt('hidden', 'Private')}${opt('free', 'Free')}${opt('price', 'Per night')}</select>
+    <input name="${c}_price" type="text" inputmode="numeric" placeholder="€" value="${t.mode === 'price' ? t.price : ''}"${t.mode === 'price' ? '' : ' hidden'} aria-label="${label} price per night in euros">
+  </div>`;
+}
+
 function flatFormHtml(f) {
-  const v = f || { id: '', title: '', area: '', rooms: 1, beds: 1, desc: '', avail: '', arrival: '', terms: {} };
+  const v = f || { id: '', title: '', area: '', rooms: 1, beds: 1, desc: '', avail: '', arrival: '', terms: {}, passOn: [] };
   const located = Number.isFinite(v.lat) && Number.isFinite(v.lon);
-  const rows = CIRCLES.map((c) => {
-    const t = Core.termsFor(v, c);
-    const opt = (val, text) => `<option value="${val}"${t.mode === val ? ' selected' : ''}>${text}</option>`;
-    return `<div class="termrow"><span>${LABEL[c]}</span>
-      <select name="${c}_mode" class="terms-mode" aria-label="${LABEL[c]} terms">${opt('hidden', 'Private')}${opt('free', 'Free')}${opt('price', 'Per night')}</select>
-      <input name="${c}_price" type="text" inputmode="numeric" placeholder="€" value="${t.mode === 'price' ? t.price : ''}"${t.mode === 'price' ? '' : ' hidden'} aria-label="${LABEL[c]} price per night in euros">
-    </div>`;
-  }).join('');
+  const rows = CIRCLES.map((c) => termRow(v, c, LABEL[c])).join('');
+  const pass = CIRCLES.map((c) => `<label class="seg-label"><input type="checkbox" name="pass" value="${c}"${(v.passOn || []).includes(c) ? ' checked' : ''}><span class="seg">${LABEL[c]}</span></label>`).join('');
   return `<form data-form="flat" data-id="${esc(v.id)}" novalidate>
     <h2>${f ? 'Edit flat' : 'Add a flat'}</h2>
     <label>Title<input name="title" maxlength="60" value="${esc(v.title)}" placeholder="Two rooms, quiet courtyard"></label>
@@ -4086,16 +4499,27 @@ function flatFormHtml(f) {
     <label>Availability<input name="avail" maxlength="80" value="${esc(v.avail)}" placeholder="Most of the year, ask first"></label>
     <p class="label">Who sees it</p>
     ${rows}
-    <p class="hint">Private means that circle never sees this flat. Set at least one circle, or nobody sees it.</p>
+    <p class="hint">Private means that circle never sees this flat.</p>
+    <p class="label">Through my people</p>
+    ${termRow(v, 'through', 'Their people')}
+    <p class="hint" style="margin-top:6px">Who may pass it on</p>
+    <div class="segs">${pass}</div>
+    <p class="hint">People in the circles you tick can pass this flat on to their own Family and Friends, on the terms above. It goes one step only, and only to people who can already see the flat. To ask for a stay, they need an intro, then have ${Core.INTRO_DAYS} days to meet you.</p>
     <label>Arrival notes<textarea name="arrival" rows="2" maxlength="200" placeholder="Address, door code, where the key is">${esc(v.arrival)}</textarea></label>
-    <p class="hint">Sent only when you accept a request.</p>
+    <p class="hint">Sent only when you accept a request. Never passed on.</p>
     <p class="error" role="alert" hidden></p>
     <div class="row"><button class="btn primary">Save flat</button><button type="button" class="btn" data-act="close">Cancel</button>${f ? `<button type="button" class="btn danger" data-act="deleteflat" data-id="${esc(v.id)}">Delete</button>` : ''}</div>
   </form>`;
 }
 
 function requestHtml(c, flatId) {
-  const item = c && Core.sharedBy(c).find((x) => x.flat.id === flatId);
+  let item = null;
+  if (c && Core.isMet(c)) item = Core.sharedBy(c).find((x) => x.flat.id === flatId);
+  else if (c) {
+    const sd = Core.secondDegree(state, Date.now()).find((x) => x.owner.id === c.id);
+    const f = sd && sd.status === 'active' && sd.flats.find((x) => x.id === flatId);
+    if (f) item = { flat: f, terms: f.terms };
+  }
   if (!item) return '<p class="empty">That flat isn’t shared with you.</p><button class="btn block" data-act="close">Close</button>';
   const min = today();
   return `<form data-form="request" data-c="${esc(c.id)}" data-f="${esc(flatId)}" novalidate>
@@ -4127,6 +4551,200 @@ function sendAnswer(r) {
     title: `Send your answer to ${firstName(r.name)}`,
     lead: r.status === 'accepted' ? 'It includes your arrival notes, so send it only to them.' : 'Share it through any messenger, or let them scan it.',
   });
+}
+
+/* ---------- how it works ---------- */
+
+function dgBox(x, y, w, h, title, sub, cls = '') {
+  return `<g class="${cls}"><rect class="bx" x="${x}" y="${y}" width="${w}" height="${h}" rx="3"/>
+    <text class="t" x="${x + w / 2}" y="${y + (sub ? h / 2 - 3 : h / 2 + 4)}">${title}</text>
+    ${sub ? `<text class="s" x="${x + w / 2}" y="${y + h / 2 + 11}">${sub}</text>` : ''}</g>`;
+}
+
+function dgArrow(x1, y1, x2, y2, id, label, lx, ly, cls = '') {
+  return `<line class="ar ${cls}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" marker-end="url(#${id})"/>${label ? `<text class="l" x="${lx}" y="${ly}">${label}</text>` : ''}`;
+}
+
+function dgSvg(id, h, label, body) {
+  return `<svg class="dg" viewBox="0 0 340 ${h}" role="img" aria-label="${esc(label)}"><defs><marker id="${id}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="hd"/></marker></defs>${body}</svg>`;
+}
+
+function diagramArchitecture() {
+  const phone = (y, who) => `<rect class="frame" x="10" y="${y}" width="320" height="92" rx="6"/>
+    <text class="h" x="22" y="${y + 18}">${who}</text>
+    ${dgBox(20, y + 30, 92, 50, 'Tessera', 'one HTML file')}
+    ${dgBox(124, y + 30, 92, 50, 'Your data', 'on the device')}
+    ${dgBox(228, y + 30, 92, 50, 'Backup', 'a file you keep', 'soft')}`;
+  return dgSvg('m-arch', 316, 'Architecture: two phones exchange codes directly, without a server',
+    phone(8, 'YOUR PHONE')
+    + dgArrow(70, 104, 70, 192, 'm-arch') + dgArrow(270, 192, 270, 104, 'm-arch')
+    + `<text class="l" x="170" y="140">codes</text><text class="s" x="170" y="155">QR in person,</text><text class="s" x="170" y="168">or any messenger</text>`
+    + phone(196, 'THEIR PHONE').replace('Your data', 'Their data')
+    + `<text class="s" x="170" y="308" style="font-weight:600">No server · no account · no tracking</text>`);
+}
+
+function diagramMeeting() {
+  const a = 75, b = 265;
+  return dgSvg('m-meet', 300, 'Meeting: show a code, scan it, scan back, both connected',
+    `<text class="h" x="${a}" y="16" text-anchor="middle">YOU</text><text class="h" x="${b}" y="16" text-anchor="middle">THEM</text>
+    <line class="lane" x1="${a}" y1="24" x2="${a}" y2="262"/><line class="lane" x1="${b}" y1="24" x2="${b}" y2="262"/>
+    ${dgBox(a - 62, 34, 124, 34, '1 Show your code', 'name and ID')}
+    ${dgArrow(a + 62, 51, b - 62, 92, 'm-meet', 'scan', 170, 64)}
+    ${dgBox(b - 62, 84, 124, 34, '2 Pick your circle', 'Family, Friends, Met')}
+    ${dgArrow(b - 62, 132, a + 62, 160, 'm-meet', 'scan back', 170, 136)}
+    ${dgBox(a - 62, 150, 124, 34, '3 Pick their circle', 'their flats arrive')}
+    ${dgArrow(a + 62, 196, b - 62, 214, 'm-meet', 'your flats', 170, 196)}
+    ${dgBox(b - 62, 206, 124, 34, '4 Your flats arrive', 'for their circle')}
+    <rect class="bx acc" x="70" y="266" width="200" height="28" rx="3"/><text class="t" x="170" y="284">Connected both ways</text>`);
+}
+
+function diagramCodes() {
+  const a = 60, b = 280;
+  const row = (y, dir, title, sub) => (dir > 0 ? dgArrow(a + 8, y, b - 8, y, 'm-codes') : dgArrow(b - 8, y, a + 8, y, 'm-codes'))
+    + `<text class="t" x="170" y="${y - 8}">${title}</text><text class="s" x="170" y="${y + 16}">${sub}</text>`;
+  return dgSvg('m-codes', 250, 'Codes: flats, request, answer, intro',
+    `<text class="h" x="${a}" y="16" text-anchor="middle">HOST</text><text class="h" x="${b}" y="16" text-anchor="middle">GUEST</text>
+    <line class="lane" x1="${a}" y1="24" x2="${a}" y2="240"/><line class="lane" x1="${b}" y1="24" x2="${b}" y2="240"/>
+    ${row(52, 1, 'Flats', 'what their circle may see, and what they may pass on')}
+    ${row(110, -1, 'Request', 'dates, guests, a message')}
+    ${row(168, 1, 'Answer', 'accept or decline, arrival notes only on accept')}
+    <text class="s" x="170" y="222">Every code starts with TSR1. Paste a whole chat</text><text class="s" x="170" y="236">message: the app finds the code inside it.</text>`);
+}
+
+function diagramCircles() {
+  const cx = 170, cy = 160;
+  const ring = (r, label, terms, cls = '') => `<circle class="ring ${cls}" cx="${cx}" cy="${cy}" r="${r}"/><text class="h halo" x="${cx}" y="${cy - r + 16}" text-anchor="middle">${label}</text>${terms ? `<text class="s halo" x="${cx}" y="${cy - r + 28}">${terms}</text>` : ''}`;
+  return dgSvg('m-circ', 330, 'Circles: Family, Friends and Met see your terms per circle. Through my people is one step further, via an intro.',
+    ring(150, 'THROUGH MY PEOPLE', 'one step, needs an intro', 'dot')
+    + ring(112, 'MET', 'their own terms')
+    + ring(78, 'FRIENDS', 'their own terms')
+    + ring(44, 'FAMILY', '')
+    + `<circle class="you" cx="${cx}" cy="${cy + 10}" r="16"/><text class="t inv" x="${cx}" y="${cy + 14}">You</text>
+    <text class="s" x="${cx}" y="322">Each flat sets terms per ring: private, free or a price.</text>`);
+}
+
+function diagramIntro() {
+  return dgSvg('m-intro', 420, 'Intro: see a flat through a friend, ask for an intro, then meet within 30 days or the intro runs out',
+    dgBox(70, 6, 200, 38, 'See Lea’s flat via Sam', 'Sam passes it on')
+    + dgArrow(170, 44, 170, 62, 'm-intro')
+    + dgBox(70, 64, 200, 38, 'Ask Sam for an intro', 'a code to Sam')
+    + dgArrow(170, 102, 170, 120, 'm-intro')
+    + dgBox(70, 122, 200, 38, 'Sam introduces you', 'one code, to both of you', 'acc')
+    + dgArrow(170, 160, 170, 178, 'm-intro')
+    + dgBox(70, 180, 200, 38, `${Core.INTRO_DAYS} days to stay in touch`, 'ask Lea for stays directly')
+    + dgArrow(130, 218, 80, 262, 'm-intro') + dgArrow(210, 218, 260, 262, 'm-intro')
+    + dgBox(8, 264, 150, 44, 'Meet and scan codes', 'connected for good', 'acc')
+    + dgBox(182, 264, 150, 44, `${Core.INTRO_DAYS} days pass`, 'the intro runs out', 'soft')
+    + `<path class="ar dash" d="M332 286 C 345 286 345 141 282 141" marker-end="url(#m-intro)" fill="none"/>
+    <text class="l" x="257" y="330">Sam reshares:</text><text class="s" x="257" y="344">${Core.INTRO_DAYS} more days</text>
+    <text class="s" x="170" y="378">Requests from an expired intro are refused.</text>
+    <text class="s" x="170" y="392">Arrival notes are never passed on, only sent</text>
+    <text class="s" x="170" y="406">when you accept a request.</text>`);
+}
+
+function viewGuide() {
+  return `<p class="lead">Tessera has no server. Your phone holds everything, and people connect by meeting and passing codes.</p>
+    <p class="label">Architecture</p>${diagramArchitecture()}
+    <p class="hint">The app is one file that works offline. Your flats, people and requests live in this phone’s storage. A backup is a copy of the app with your data inside.</p>
+    <p class="label">Meeting</p>${diagramMeeting()}
+    <p class="hint">Two scans connect two people. Each side chooses the other’s circle privately.</p>
+    <p class="label">Codes</p>${diagramCodes()}
+    <p class="hint">Codes are not signed or encrypted yet. Send each code only to the person it is for.</p>
+    <p class="label">Who sees what</p>${diagramCircles()}
+    <p class="hint">Under Through my people, you tick which circles may pass a flat on. They pass it only to their own Family and Friends, one step, never further.</p>
+    <p class="label">Intros</p>${diagramIntro()}
+    <button class="btn block" data-act="tab" data-tab="you">Back to You</button>`;
+}
+
+/* ---------- test people ---------- */
+// Made-up people to practise with. Each one is a simulated phone: their state is rebuilt from
+// TEST and from what you have done, and codes you send them are answered here, on this device.
+
+const TEST_FREE = { mode: 'free' };
+const TEST_HIDDEN = { mode: 'hidden' };
+const TEST_PRICE = (n) => ({ mode: 'price', price: n });
+
+const TEST = {
+  sam: { id: 'TEST-SAM-0001', name: 'Sam', meAs: 'friends', flats: [
+    { id: 't-sam-1', title: 'Room with a balcony', area: 'Friedrichshain, Berlin', lat: 52.5, lon: 13.45, rooms: 1, beds: 2,
+      desc: 'Sam’s spare room above a courtyard café.', avail: 'Weekends and holidays', arrival: 'Ring “Sam”, third floor, the key is with the café.',
+      terms: { family: TEST_FREE, friends: TEST_FREE, met: TEST_HIDDEN, through: TEST_HIDDEN }, passOn: [] },
+  ] },
+  lea: { id: 'TEST-LEA-0002', name: 'Lea', rel: 'family', meAs: 'friends', flats: [
+    { id: 't-lea-1', title: 'Flat by the Elbe', area: 'Ottensen, Hamburg', lat: 53.55, lon: 9.9, rooms: 2, beds: 3,
+      desc: 'Lea’s two rooms, five minutes from the river beach.', avail: 'Most of the year, ask first', arrival: 'Lea leaves the key in the bakery on the corner.',
+      terms: { family: TEST_FREE, friends: TEST_PRICE(30), met: TEST_HIDDEN, through: TEST_PRICE(45) }, passOn: ['family'] },
+  ] },
+  jonas: { id: 'TEST-JON-0003', name: 'Jonas', rel: 'friends', meAs: 'friends', flats: [
+    { id: 't-jonas-1', title: 'Loft in an old factory', area: 'Plagwitz, Leipzig', lat: 51.35, lon: 12.35, rooms: 2, beds: 2,
+      desc: 'High windows over the canal, a bike you can borrow.', avail: 'Summer', arrival: 'Code 4711 at the gate, loft 3.',
+      terms: { family: TEST_FREE, friends: TEST_FREE, met: TEST_HIDDEN, through: TEST_PRICE(35) }, passOn: ['friends'] },
+  ] },
+  dad: { id: 'TEST-DAD-0004', name: 'Dad', meAs: 'family', flats: [
+    { id: 't-dad-1', title: 'The family apartment', area: 'Schwabing, Munich', lat: 48.15, lon: 11.6, rooms: 4, beds: 5,
+      desc: 'Your old room is still there. So are the books.', avail: 'Any time', arrival: 'You know where the key is.',
+      terms: { family: TEST_FREE, friends: TEST_HIDDEN, met: TEST_HIDDEN, through: TEST_HIDDEN }, passOn: [] },
+    { id: 't-dad-2', title: 'Holiday flat at the lake', area: 'Lindau, Lake Constance', lat: 47.55, lon: 9.7, rooms: 2, beds: 4,
+      desc: 'A balcony over the water and a boat in summer.', avail: 'Outside the school holidays', arrival: 'The neighbour, Mrs Weber, has the key.',
+      terms: { family: TEST_FREE, friends: TEST_HIDDEN, met: TEST_HIDDEN, through: TEST_HIDDEN }, passOn: [] },
+  ] },
+};
+
+const testKey = (id) => Object.keys(TEST).find((k) => TEST[k].id === id) || null;
+
+function testState(k) {
+  const p = TEST[k];
+  const now = Date.now();
+  const long = new Date(now - 400 * 86400000).toISOString();
+  const contacts = [];
+  const mine = contactOf(p.id);
+  if (k === 'sam') {
+    for (const q of ['lea', 'jonas']) {
+      contacts.push({ id: TEST[q].id, name: TEST[q].name, status: 'met', circle: TEST[q].rel, metAt: long, flats: Core.bundleMsg(testState(q), p.id, now).flats, via: [] });
+    }
+  }
+  if (k === 'lea' || k === 'jonas') contacts.push({ id: TEST.sam.id, name: TEST.sam.name, status: 'met', circle: p.rel, metAt: long, flats: [], via: [] });
+  if (mine || k === 'dad') {
+    if (!mine || Core.isMet(mine)) contacts.push({ id: state.me.id, name: state.me.name, status: 'met', circle: p.meAs, metAt: long, flats: [], via: [] });
+    else contacts.push({ id: state.me.id, name: state.me.name, status: 'intro', circle: 'met', metAt: '', intro: { by: TEST.sam.id, byName: TEST.sam.name, until: mine.intro.until }, flats: [], via: [] });
+  }
+  return Core.normalize({ v: Core.STATE_VERSION, me: { name: p.name, id: p.id }, flats: p.flats, contacts, requests: [], incoming: [], introAsks: [], sentAsks: [] });
+}
+
+function testToMeet() {
+  return ['sam', 'lea', 'jonas'].filter((k) => {
+    const c = contactOf(TEST[k].id);
+    return k === 'sam' ? !Core.isMet(c) || !c : !!c && !Core.isMet(c);
+  });
+}
+
+// A test person "receives" a code you sent and answers like a real phone would.
+function testDeliver(msg) {
+  const k = testKey(msg.to);
+  if (!k) return;
+  const name = TEST[k].name;
+  const mineBefore = contactOf(TEST[k].id);
+  setTimeout(() => {
+    if (!state) return;
+    const now = Date.now();
+    const vs = testState(k);
+    let reply = null;
+    if (msg.t === 'bundle') {
+      const c = contactOf(TEST[k].id);
+      if (c && !c.flats.length && !(c.via || []).length) reply = Core.bundleMsg(vs, state.me.id, now);
+      else toast(`${name} got your flats.`);
+    } else if (msg.t === 'request') {
+      const r = Core.receive(vs, msg, false, now);
+      if (r.error) { toast(`${name}: ${r.error}`); return; }
+      const a = Core.answerIncoming(r.state, msg.req.id, 'accepted', `Of course! Looking forward to it. – ${name}`, now);
+      reply = Core.responseMsg(a.state, a.incoming);
+    } else if (msg.t === 'introreq') {
+      const r = Core.receive(vs, msg, false, now);
+      if (r.error) { toast(`${name}: ${r.error}`); return; }
+      reply = Core.introMsg(r.state, r.state.introAsks[0], now);
+    }
+    if (reply) onCode(Core.encode(reply), false, null);
+  }, mineBefore ? 1200 : 600);
 }
 
 /* ---------- backup ---------- */
@@ -4199,7 +4817,61 @@ function importBackup() {
 /* ---------- actions ---------- */
 
 const actions = {
-  tab: (d) => { tab = d.tab; history.replaceState(null, '', '#' + tab); render(); window.scrollTo(0, 0); },
+  tab: (d) => { closeSheet(); tab = d.tab; history.replaceState(null, '', '#' + tab); render(); window.scrollTo(0, 0); },
+  outdeliver: () => {
+    const o = outbox;
+    if (!o) return;
+    outboxSent();
+    closeSheet();
+    toast(`Delivered to ${TEST[testKey(o.msg.to)].name}.`);
+    testDeliver(o.msg);
+  },
+  practice: () => showSheet(practiceHtml),
+  practicecard: (d) => showSheet(() => practiceCardHtml(d.k)),
+  simscan: (d) => onCode(Core.encode(Core.cardMsg(testState(d.k), Date.now())), true, null),
+  adddad: () => {
+    if (contactOf(TEST.dad.id)) return;
+    const now = Date.now();
+    commit(Core.addContact(state, Core.bundleMsg(testState('dad'), state.me.id, now), 'family', 'Test person', now, { demo: true }));
+    toast('Dad is in your Family, with two flats.');
+  },
+  expireintros: () => {
+    let s = state;
+    for (const c of state.contacts) if (c.demo && !Core.isMet(c)) s = Core.setIntroUntil(s, c.id, Date.now() - 1000);
+    commit(s);
+    toast('The test intros have run out. Ask Sam again under Stays.');
+  },
+  removetests: () => {
+    if (!confirm('Remove all test people, their flats and your requests to them?')) return;
+    let s = state;
+    for (const c of state.contacts) if (c.demo) s = Core.removeContact(s, c.id);
+    closeSheet();
+    commit(s);
+    toast('Test people removed.');
+  },
+  askintro: (d) => {
+    const sd = Core.secondDegree(state, Date.now()).find((x) => x.owner.id === d.o && x.via.id === d.via);
+    if (!sd) return;
+    const res = Core.askIntro(state, d.via, sd.owner, Date.now());
+    if (res.error) return toast(res.error);
+    commit(res.state);
+    sendCode({
+      msg: res.msg, forName: sd.via.name,
+      title: `Ask ${firstName(sd.via.name)} for an intro`,
+      lead: `${firstName(sd.via.name)} gets a request to introduce you to ${firstName(sd.owner.name)}. The intro comes back as a code: tap Receive.`,
+    });
+  },
+  introduce: (d) => {
+    const res = Core.makeIntro(state, d.id, Date.now());
+    if (res.error) return toast(res.error);
+    commit(res.state);
+    const [p1, p2] = res.msg.people;
+    sendCode({
+      msg: res.msg,
+      title: `Introduce ${firstName(p1.name)} and ${firstName(p2.name)}`,
+      lead: `Send this one code to both of them. Each gets ${Core.INTRO_DAYS} days to ask the other for stays and to meet in person.`,
+    });
+  },
   close: () => closeSheet(),
   mapfilter: (d) => { mapFilter = d.f; mapNeedsFit = true; render(); },
   place: (d) => {
@@ -4311,13 +4983,13 @@ const forms = {
   paste: (fd, form) => onCode(fd.get('code'), form.dataset.mode === 'meet', form),
   meetadd: (fd) => {
     const m = meet.msg;
-    commit(Core.addContact(state, m, fd.get('circle'), fd.get('note'), Date.now()));
+    commit(Core.addContact(state, m, fd.get('circle'), fd.get('note'), Date.now(), testKey(m.from.id) ? { demo: true } : null));
     meet = null;
     toast(`${firstName(m.from.name)} is in your people.`);
     sendBundle(m.from.id, true);
   },
   flat: (fd, form) => {
-    const res = Core.flatFromForm(Object.fromEntries(fd), form.dataset.id || Core.uid());
+    const res = Core.flatFromForm({ ...Object.fromEntries(fd), passOn: fd.getAll('pass') }, form.dataset.id || Core.uid());
     if (res.error) return formError(form, res.error);
     commit(Core.saveFlat(state, res.flat));
     closeSheet();
