@@ -238,53 +238,55 @@ form.inline .error{flex-basis:100%}
 </script>
 <script id="data">
 // Made-up example places, so the map and Stays are not empty on a fresh install.
-// They are shown read-only, never stored in your data, never sent in a code, and can be hidden under You.
+// Nobody and no real address is behind them: real cities, public streets and landmarks only,
+// no house numbers, no names. Coordinates are snapped to a 5 km grid, like every flat in the app.
+// Shown read-only, never stored in your data, never sent in a code, and can be hidden under You.
 const FREE = { mode: 'free' };
 const PRICE = (n) => ({ mode: 'price', price: n });
 
 const EXAMPLES = [
-  { id: 'berlin', name: 'Mila Hartmann', city: 'Berlin', flats: [
-    { id: 'ex-berlin-1', title: 'Garden flat by the canal', area: 'Kreuzberg, Berlin', lat: 52.5, lon: 13.4, rooms: 2, beds: 3,
-      desc: 'Ground floor with a shared garden. Bikes in the hallway, a market on Tuesdays.', avail: 'Most of the year, ask first', terms: PRICE(55) },
-    { id: 'ex-berlin-2', title: 'Attic studio above the rooftops', area: 'Prenzlauer Berg, Berlin', lat: 52.55, lon: 13.4, rooms: 1, beds: 2,
-      desc: 'One bright room under the roof, with a desk by the window.', avail: 'January to June', terms: FREE },
+  { id: 'berlin', name: 'Example host', city: 'Berlin', flats: [
+    { id: 'ex-berlin-1', title: 'Bright flat on a tree-lined street', area: 'Kastanienallee, Prenzlauer Berg', lat: 52.55, lon: 13.4, rooms: 2, beds: 3,
+      desc: 'Two bright rooms and a small balcony. Cafés and a weekend market nearby.', avail: 'Most of the year, ask first', terms: PRICE(55) },
+    { id: 'ex-berlin-2', title: 'Small studio near the TV tower', area: 'Near Alexanderplatz, Mitte', lat: 52.5, lon: 13.4, rooms: 1, beds: 2,
+      desc: 'One room with a desk by the window. Everything is a short walk away.', avail: 'January to June', terms: FREE },
   ] },
-  { id: 'paris', name: 'Camille Roux', city: 'Paris', flats: [
-    { id: 'ex-paris-1', title: 'Courtyard side, fourth floor', area: 'Le Marais, Paris', lat: 48.85, lon: 2.35, rooms: 2, beds: 2,
-      desc: 'Quiet rooms on the courtyard, a bakery downstairs, no lift.', avail: 'September to November', terms: PRICE(90) },
-    { id: 'ex-paris-2', title: 'Maid’s room with a view', area: 'Montmartre, Paris', lat: 48.9, lon: 2.35, rooms: 1, beds: 1,
-      desc: 'A small room at the top of the stairs. Zinc roofs as far as you can see.', avail: 'Year round', terms: PRICE(50) },
+  { id: 'paris', name: 'Example host', city: 'Paris', flats: [
+    { id: 'ex-paris-1', title: 'Quiet rooms on the courtyard', area: 'Near Place de la République', lat: 48.85, lon: 2.35, rooms: 2, beds: 2,
+      desc: 'A calm courtyard side, a bakery on the corner, no lift.', avail: 'September to November', terms: PRICE(90) },
+    { id: 'ex-paris-2', title: 'Small room under the roof', area: 'Near Parc des Buttes-Chaumont', lat: 48.9, lon: 2.4, rooms: 1, beds: 1,
+      desc: 'A compact room at the top of the stairs, with a view over the park.', avail: 'Year round', terms: PRICE(50) },
   ] },
-  { id: 'newyork', name: 'Dani Okafor', city: 'New York', flats: [
-    { id: 'ex-newyork-1', title: 'Brownstone floor-through', area: 'Bedford-Stuyvesant, Brooklyn', lat: 40.7, lon: -73.95, rooms: 3, beds: 4,
-      desc: 'The whole parlour floor with high ceilings and a back garden.', avail: 'Spring and autumn', terms: PRICE(110) },
-    { id: 'ex-newyork-2', title: 'One bedroom near the park', area: 'Harlem, New York', lat: 40.8, lon: -73.95, rooms: 2, beds: 2,
-      desc: 'Sunny corner flat, ten minutes from Central Park.', avail: 'Any time outside summer', terms: PRICE(85) },
+  { id: 'newyork', name: 'Example host', city: 'New York', flats: [
+    { id: 'ex-newyork-1', title: 'Floor-through with high ceilings', area: 'Near Prospect Park, Brooklyn', lat: 40.65, lon: -73.95, rooms: 3, beds: 4,
+      desc: 'A whole floor with high ceilings and a back garden.', avail: 'Spring and autumn', terms: PRICE(110) },
+    { id: 'ex-newyork-2', title: 'One bedroom by the square', area: 'Near Washington Square, Manhattan', lat: 40.75, lon: -74, rooms: 2, beds: 2,
+      desc: 'A sunny one bedroom a few minutes from the park.', avail: 'Any time outside summer', terms: PRICE(85) },
   ] },
-  { id: 'milan', name: 'Giulia Ferri', city: 'Milan', flats: [
-    { id: 'ex-milan-1', title: 'Loft on the canal', area: 'Navigli, Milan', lat: 45.45, lon: 9.15, rooms: 2, beds: 3,
-      desc: 'A former workshop with iron windows. Aperitivo starts at your door.', avail: 'Most of the year', terms: PRICE(80) },
+  { id: 'milan', name: 'Example host', city: 'Milan', flats: [
+    { id: 'ex-milan-1', title: 'Loft with iron windows', area: 'Near Parco Sempione', lat: 45.45, lon: 9.15, rooms: 2, beds: 3,
+      desc: 'A converted workshop with big windows, close to the park.', avail: 'Most of the year', terms: PRICE(80) },
   ] },
-  { id: 'barcelona', name: 'Pau Serra', city: 'Barcelona', flats: [
-    { id: 'ex-barcelona-1', title: 'Terrace flat in Gràcia', area: 'Gràcia, Barcelona', lat: 41.4, lon: 2.15, rooms: 2, beds: 3,
+  { id: 'barcelona', name: 'Example host', city: 'Barcelona', flats: [
+    { id: 'ex-barcelona-1', title: 'Terrace flat in the city centre', area: 'Near Plaça de Catalunya', lat: 41.4, lon: 2.15, rooms: 2, beds: 3,
       desc: 'A big terrace over a small square. Quiet after midnight, mostly.', avail: 'March to October', terms: PRICE(70) },
-    { id: 'ex-barcelona-2', title: 'Studio ten minutes from the sea', area: 'Barceloneta, Barcelona', lat: 41.4, lon: 2.2, rooms: 1, beds: 2,
+    { id: 'ex-barcelona-2', title: 'Studio near the park', area: 'Near Parc de la Ciutadella', lat: 41.4, lon: 2.2, rooms: 1, beds: 2,
       desc: 'Fan, shutters and a balcony the width of a bench.', avail: 'Ask first', terms: FREE },
   ] },
-  { id: 'lisbon', name: 'Rui Matos', city: 'Lisbon', flats: [
-    { id: 'ex-lisbon-1', title: 'Tiled flat with a lemon tree', area: 'Graça, Lisbon', lat: 38.7, lon: -9.1, rooms: 2, beds: 3,
-      desc: 'Azulejos in the hall and a small tree on the shared roof.', avail: 'October to May', terms: PRICE(55) },
-    { id: 'ex-lisbon-2', title: 'Room above the river', area: 'Alfama, Lisbon', lat: 38.7, lon: -9.15, rooms: 1, beds: 1,
-      desc: 'Steep stairs and the Tagus at the end of the street.', avail: 'Year round', terms: FREE },
+  { id: 'lisbon', name: 'Example host', city: 'Lisbon', flats: [
+    { id: 'ex-lisbon-1', title: 'Tiled flat near the river', area: 'Near Praça do Comércio', lat: 38.7, lon: -9.15, rooms: 2, beds: 3,
+      desc: 'Painted tiles in the hall and the river at the end of the street.', avail: 'October to May', terms: PRICE(55) },
+    { id: 'ex-lisbon-2', title: 'Bright room by the park', area: 'Near Parque Eduardo VII', lat: 38.75, lon: -9.15, rooms: 1, beds: 1,
+      desc: 'A single room with a view over the park. Steep stairs, no lift.', avail: 'Year round', terms: FREE },
   ] },
-  { id: 'vienna', name: 'Lena Gruber', city: 'Vienna', flats: [
-    { id: 'ex-vienna-1', title: 'Altbau with tall ceilings', area: 'Josefstadt, Vienna', lat: 48.2, lon: 16.35, rooms: 3, beds: 4,
-      desc: 'Parquet, a tiled stove and a kitchen that gets the morning sun.', avail: 'Most of the year, ask first', terms: PRICE(65) },
+  { id: 'vienna', name: 'Example host', city: 'Vienna', flats: [
+    { id: 'ex-vienna-1', title: 'Old building with tall ceilings', area: 'Near Stadtpark', lat: 48.2, lon: 16.4, rooms: 3, beds: 4,
+      desc: 'Parquet floors, a tiled stove and a kitchen that gets the morning sun.', avail: 'Most of the year, ask first', terms: PRICE(65) },
   ] },
-  { id: 'copenhagen', name: 'Mads Holm', city: 'Copenhagen', flats: [
-    { id: 'ex-copenhagen-1', title: 'Courtyard flat in Nørrebro', area: 'Nørrebro, Copenhagen', lat: 55.7, lon: 12.55, rooms: 2, beds: 3,
-      desc: 'Bikes in the courtyard, a bakery on the corner, the lakes a short walk away.', avail: 'May to September', terms: PRICE(95) },
-    { id: 'ex-copenhagen-2', title: 'Attic in Vesterbro', area: 'Vesterbro, Copenhagen', lat: 55.65, lon: 12.55, rooms: 1, beds: 2,
+  { id: 'copenhagen', name: 'Example host', city: 'Copenhagen', flats: [
+    { id: 'ex-copenhagen-1', title: 'Courtyard flat by the gardens', area: 'Near Tivoli Gardens', lat: 55.65, lon: 12.55, rooms: 2, beds: 3,
+      desc: 'Bikes in the courtyard and a bakery on the corner.', avail: 'May to September', terms: PRICE(95) },
+    { id: 'ex-copenhagen-2', title: 'Attic with a skylight', area: 'Near Fælledparken', lat: 55.7, lon: 12.55, rooms: 1, beds: 2,
       desc: 'Sloping ceilings and a skylight over the bed.', avail: 'Any time', terms: PRICE(75) },
   ] },
 ];
@@ -4505,7 +4507,7 @@ function flatFormHtml(f) {
     <p class="hint" style="margin-top:6px">Who may pass it on</p>
     <div class="segs">${pass}</div>
     <p class="hint">People in the circles you tick can pass this flat on to their own Family and Friends, on the terms above. It goes one step only, and only to people who can already see the flat. To ask for a stay, they need an intro, then have ${Core.INTRO_DAYS} days to meet you.</p>
-    <label>Arrival notes<textarea name="arrival" rows="2" maxlength="200" placeholder="Address, door code, where the key is">${esc(v.arrival)}</textarea></label>
+    <label>Arrival notes<textarea name="arrival" rows="2" maxlength="200" placeholder="How to get in and where the key is">${esc(v.arrival)}</textarea></label>
     <p class="hint">Sent only when you accept a request. Never passed on.</p>
     <p class="error" role="alert" hidden></p>
     <div class="row"><button class="btn primary">Save flat</button><button type="button" class="btn" data-act="close">Cancel</button>${f ? `<button type="button" class="btn danger" data-act="deleteflat" data-id="${esc(v.id)}">Delete</button>` : ''}</div>
@@ -4664,28 +4666,30 @@ const TEST_FREE = { mode: 'free' };
 const TEST_HIDDEN = { mode: 'hidden' };
 const TEST_PRICE = (n) => ({ mode: 'price', price: n });
 
+const TEST_NOTE = 'Example arrival note: ring the top bell, the key is in the lockbox.';
+
 const TEST = {
   sam: { id: 'TEST-SAM-0001', name: 'Sam', meAs: 'friends', flats: [
-    { id: 't-sam-1', title: 'Room with a balcony', area: 'Friedrichshain, Berlin', lat: 52.5, lon: 13.45, rooms: 1, beds: 2,
-      desc: 'Sam’s spare room above a courtyard café.', avail: 'Weekends and holidays', arrival: 'Ring “Sam”, third floor, the key is with the café.',
+    { id: 't-sam-1', title: 'Room with a balcony', area: 'Near Boxhagener Platz, Berlin', lat: 52.5, lon: 13.45, rooms: 1, beds: 2,
+      desc: 'A spare room with a small balcony.', avail: 'Weekends and holidays', arrival: TEST_NOTE,
       terms: { family: TEST_FREE, friends: TEST_FREE, met: TEST_HIDDEN, through: TEST_HIDDEN }, passOn: [] },
   ] },
   lea: { id: 'TEST-LEA-0002', name: 'Lea', rel: 'family', meAs: 'friends', flats: [
-    { id: 't-lea-1', title: 'Flat by the Elbe', area: 'Ottensen, Hamburg', lat: 53.55, lon: 9.9, rooms: 2, beds: 3,
-      desc: 'Lea’s two rooms, five minutes from the river beach.', avail: 'Most of the year, ask first', arrival: 'Lea leaves the key in the bakery on the corner.',
+    { id: 't-lea-1', title: 'Flat near the river', area: 'Near Planten un Blomen, Hamburg', lat: 53.55, lon: 10, rooms: 2, beds: 3,
+      desc: 'Two rooms, a short walk from the water.', avail: 'Most of the year, ask first', arrival: TEST_NOTE,
       terms: { family: TEST_FREE, friends: TEST_PRICE(30), met: TEST_HIDDEN, through: TEST_PRICE(45) }, passOn: ['family'] },
   ] },
   jonas: { id: 'TEST-JON-0003', name: 'Jonas', rel: 'friends', meAs: 'friends', flats: [
-    { id: 't-jonas-1', title: 'Loft in an old factory', area: 'Plagwitz, Leipzig', lat: 51.35, lon: 12.35, rooms: 2, beds: 2,
-      desc: 'High windows over the canal, a bike you can borrow.', avail: 'Summer', arrival: 'Code 4711 at the gate, loft 3.',
+    { id: 't-jonas-1', title: 'Loft in a converted building', area: 'Near Augustusplatz, Leipzig', lat: 51.35, lon: 12.4, rooms: 2, beds: 2,
+      desc: 'High windows and a shared bike.', avail: 'Summer', arrival: TEST_NOTE,
       terms: { family: TEST_FREE, friends: TEST_FREE, met: TEST_HIDDEN, through: TEST_PRICE(35) }, passOn: ['friends'] },
   ] },
   dad: { id: 'TEST-DAD-0004', name: 'Dad', meAs: 'family', flats: [
-    { id: 't-dad-1', title: 'The family apartment', area: 'Schwabing, Munich', lat: 48.15, lon: 11.6, rooms: 4, beds: 5,
-      desc: 'Your old room is still there. So are the books.', avail: 'Any time', arrival: 'You know where the key is.',
+    { id: 't-dad-1', title: 'Family flat in the city', area: 'Near Englischer Garten, Munich', lat: 48.15, lon: 11.6, rooms: 4, beds: 5,
+      desc: 'Four rooms, plenty of space for the family.', avail: 'Any time', arrival: TEST_NOTE,
       terms: { family: TEST_FREE, friends: TEST_HIDDEN, met: TEST_HIDDEN, through: TEST_HIDDEN }, passOn: [] },
-    { id: 't-dad-2', title: 'Holiday flat at the lake', area: 'Lindau, Lake Constance', lat: 47.55, lon: 9.7, rooms: 2, beds: 4,
-      desc: 'A balcony over the water and a boat in summer.', avail: 'Outside the school holidays', arrival: 'The neighbour, Mrs Weber, has the key.',
+    { id: 't-dad-2', title: 'Holiday flat at the lake', area: 'Near Lindau harbour, Lake Constance', lat: 47.55, lon: 9.7, rooms: 2, beds: 4,
+      desc: 'A balcony over the water.', avail: 'Outside the school holidays', arrival: TEST_NOTE,
       terms: { family: TEST_FREE, friends: TEST_HIDDEN, met: TEST_HIDDEN, through: TEST_HIDDEN }, passOn: [] },
   ] },
 };
@@ -4967,7 +4971,7 @@ const actions = {
 const forms = {
   onboard: (fd, form) => {
     const name = String(fd.get('name') || '').trim();
-    if (!name) return formError(form, 'Tell us what to call you, for example Anna.');
+    if (!name) return formError(form, 'Tell us what to call you. A first name or a nickname is fine.');
     state = Core.newState(name);
     tab = 'map';
     mapNeedsFit = true;
